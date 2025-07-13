@@ -1,0 +1,72 @@
+<style>
+
+body {
+  background-color: #333;
+}
+
+canvas {
+  width: 800px;
+  height: 800px;
+  margin: 2em;
+  border: 3px #555 solid;
+  background-color: #111;
+}
+
+</style>
+<script src="../build/index.js"></script>
+<canvas></canvas>
+<script>
+
+const canvas = document.querySelector('canvas');
+const context = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 800;
+
+const particleSystem = new ParticleSystem();
+particleSystem.emitters.push(
+  new Emitter(
+    { x: 400, y: 400 },
+    { x: 100, y: 100 },
+    -1,
+    {
+      particles: {
+        position: 'uniform',
+        speed: {
+          min: 50,
+          max: 100,
+        },
+        direction: {
+          min: -Math.PI,
+          max: Math.PI,
+        },
+        size: { x: 5, y: 5 },
+        rotation: null,
+        lifespan: 5,
+      },
+      emission: {
+        type: 'rate',
+        rate: 10,
+      },
+    }
+  )
+);
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update() {
+  const dt = 1 / 60; // Assuming 60 FPS
+  particleSystem.update(dt);
+}
+
+function draw() {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  particleSystem.draw(context);
+}
+
+loop();
+
+</script>

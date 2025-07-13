@@ -9,7 +9,7 @@ export type Color = {
     b: number;
     a?: number;
 };
-export default class ParticleSystem {
+export declare class ParticleSystem {
     particles: Particle[];
     emitters: Emitter[];
     attractors: Attractor[];

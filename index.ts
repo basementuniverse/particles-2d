@@ -82,7 +82,7 @@ function makeTransparent(color: Color | string): Color {
 // Particle System
 // -----------------------------------------------------------------------------
 
-export default class ParticleSystem {
+export class ParticleSystem {
   public particles: Particle[] = [];
   public emitters: Emitter[] = [];
   public attractors: Attractor[] = [];
@@ -684,7 +684,7 @@ export class Emitter {
   public constructor(
     public position: vec2,
     public size: vec2 = vec2(0, 0),
-    public lifespan: number = 1,
+    public lifespan: number = -1,
     options?: Partial<EmitterOptions>
   ) {
     this.options = Object.assign({}, DEFAULT_EMITTER_OPTIONS, options ?? {});
@@ -697,7 +697,7 @@ export class Emitter {
   public update(system: ParticleSystem, dt: number) {
     // Handle emitter aging and dispose if we've reached the lifespan
     this.age += dt;
-    if (this.age >= this.lifespan) {
+    if (this.lifespan !== -1 && this.age >= this.lifespan) {
       this._disposed = true;
       return;
     }
@@ -867,14 +867,16 @@ export class Emitter {
 
     // Generate rotation
     let rotation: number | null;
-    if (typeof this.options.particles.rotation === 'function') {
+    if (this.options.particles.rotation === null) {
+      rotation = null;
+    } else if (typeof this.options.particles.rotation === 'function') {
       // Custom rotation function
       rotation = this.options.particles.rotation.bind(this)(n);
     } else if (isRandomRange(this.options.particles.rotation)) {
       // Random rotation range
       rotation = calculateRandomRange<number>(this.options.particles.rotation);
     } else {
-      // Fixed rotation or null
+      // Fixed rotation
       rotation = this.options.particles.rotation;
     }
 
@@ -916,7 +918,7 @@ export class Attractor {
     public range: number = 100,
     public force: number = 1,
     public falloff: number = 1,
-    public lifespan: number = 1
+    public lifespan: number = -1
   ) {}
 
   public get disposed(): boolean {
@@ -945,7 +947,7 @@ export class Attractor {
     this.age += dt;
 
     // Dispose the attractor when its lifespan is reached
-    if (this.age >= this.lifespan) {
+    if (this.lifespan !== -1 && this.age >= this.lifespan) {
       this._disposed = true;
     }
   }
@@ -961,7 +963,7 @@ export class ForceField {
 
   public constructor(
     public force: vec2 = vec2(0, 0),
-    public lifespan: number = 1
+    public lifespan: number = -1
   ) {}
 
   public get disposed(): boolean {
@@ -976,7 +978,7 @@ export class ForceField {
     this.age += dt;
 
     // Dispose the force field when its lifespan is reached
-    if (this.age >= this.lifespan) {
+    if (this.lifespan !== -1 && this.age >= this.lifespan) {
       this._disposed = true;
     }
   }
