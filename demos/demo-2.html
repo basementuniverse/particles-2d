@@ -22,42 +22,60 @@ const context = canvas.getContext('2d');
 canvas.width = 800;
 canvas.height = 800;
 
-// DEMO 1: basic dot particles with random color, rate-based emission, and fade-in/fade-out
+// DEMO 2: glowing sparks with force field and collider
 
 const particleSystem = new ParticleSystem();
 particleSystem.emitters.push(
   new Emitter(
     { x: 400, y: 400 },
-    { x: 100, y: 100 },
+    { x: 50, y: 50 },
     -1,
     {
       particles: {
-        position: 'uniform',
+        position: 'normal',
         speed: {
-          min: 50,
-          max: 100,
+          min: 150,
+          max: 200,
         },
         direction: {
           min: -Math.PI,
-          max: Math.PI,
+          max: 0,
         },
-        size: { x: 30, y: 30 },
+        size: { x: 12, y: 4 },
         rotation: null,
-        lifespan: 5,
+        lifespan: 2,
         style: {
-          style: 'dot',
-          color: ['#ff0000', '#00ff00', '#0000ff'],
+          style: 'line',
+          color: '#ffa',
+          glow: {
+            color: 'yellow',
+            amount: 10,
+          },
           fade: {
-            in: 0.5,
+            in: 0.1,
             out: 2,
           }
         },
       },
       emission: {
         type: 'rate',
-        rate: 10,
+        rate: 30,
       },
     }
+  )
+);
+particleSystem.forceFields.push(
+  new ForceField({ x: 0, y: 300 })
+);
+particleSystem.colliders.push(
+  new Collider(
+    {
+      type: 'rectangle',
+      position: { x: 400, y: 550 },
+      size: { x: 800, y: 100 },
+    },
+    0.4,
+    0.6
   )
 );
 
@@ -75,6 +93,9 @@ function update() {
 function draw() {
   context.clearRect(0, 0, canvas.width, canvas.height);
   particleSystem.draw(context);
+
+  context.fillStyle = '#333';
+  context.fillRect(0, 500, 800, 100);
 }
 
 loop();

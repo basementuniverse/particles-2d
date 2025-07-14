@@ -280,15 +280,13 @@ export type ParticleStyle = (
   | {
       style: 'line';
       color: Color | string | Color[] | string[];
-      rotation?: number;
-      relativeRotation?: boolean;
+      rotationOffset?: number;
       glow?: GlowStyle;
     }
   | {
       style: 'image';
       image: HTMLImageElement;
-      rotation?: number;
-      relativeRotation?: boolean;
+      rotationOffset?: number;
     }
 ) & {
   fade?: FadeStyle;
@@ -524,12 +522,8 @@ export class Particle {
           if (this.style.glow) {
             prepareGlow(context, this.style.glow, this.actualGlowColor);
           }
-          let angle = 0;
-          if (this.style.relativeRotation) {
-            angle = this.actualRotation + (this.style.rotation ?? 0);
-          } else {
-            angle = this.style.rotation ?? 0;
-          }
+          const angle =
+            (this.actualRotation ?? 0) + (this.style.rotationOffset ?? 0);
           const length = this.size.x;
           const lineWidth = this.size.y;
           const vector = vec2.rot(vec2(length, 0), angle);
@@ -542,12 +536,8 @@ export class Particle {
         case 'image':
           // Image style renders an image with optional rotation
           if (defaultDraws.includes('transforms')) {
-            let angle = 0;
-            if (this.style.relativeRotation) {
-              angle = this.actualRotation + (this.style.rotation ?? 0);
-            } else {
-              angle = this.style.rotation ?? 0;
-            }
+            const angle =
+              (this.actualRotation ?? 0) + (this.style.rotationOffset ?? 0);
             context.rotate(angle);
           }
           context.drawImage(

@@ -10,5 +10,338 @@ npm install @basementuniverse/particles-2d
 
 ## How to use
 
-// TODO
+See `/demos` for some examples.
 
+1. Import the component and any other classes you need:
+
+```js
+import {
+  ParticleSystem,
+  Emitter,
+  Attractor,
+  ForceField,
+  Collider,
+} from '@basementuniverse/particles-2d';
+```
+
+2. Create a `ParticleSystem` instance:
+
+```js
+const particleSystem = new ParticleSystem();
+```
+
+3. Add emitters, attractors, force fields, and colliders as needed:
+
+```js
+particleSystem.emitters.push(
+  new Emitter(/* See below for options */)
+);
+
+particleSystem.attractors.push(
+  new Attractor(/* See below for options */)
+);
+
+particleSystem.forceFields.push(
+  new ForceField(/* See below for options */)
+);
+
+particleSystem.colliders.push(
+  new Collider(/* See below for options */)
+);
+```
+
+4. Update and render the particle system in your game loop:
+
+```js
+function update(deltaTime) {
+  particleSystem.update(deltaTime);
+
+  // Other game logic...
+}
+
+function draw(context) {
+  particleSystem.draw(context);
+
+  // Other rendering logic...
+}
+```
+
+## Utility types
+
+#### `vec2`
+
+```ts
+{ x: number, y: number }
+```
+
+#### `Color`
+
+```ts
+{ r: number, g: number, b: number, a?: number }
+```
+
+## Emitters
+
+Emitters are responsible for generating and emitting particles.
+
+```ts
+new Emitter(
+  position: vec2, // { x: number, y: number }
+  size: vec2, // { x: number, y: number }
+  lifespan: number, // in seconds, use -1 for infinite lifespan
+  options?: EmitterOptions // see below...
+);
+```
+
+### Emitter Options
+
+```js
+{
+  particles: {
+    position
+    speed
+    direction
+    size
+    rotation
+    lifespan
+    style
+    options
+  },
+
+  emission: {
+    type
+    rate, n, delay, f // depends on type
+  }
+}
+```
+
+#### `particles.position`
+
+Define the initial position of particles:
+
+- `'uniform'`: particles will be uniformly distributed within the emitter's area as defined by its `position` (this is the center) and `size`
+- `'normal'`: particles will be normally distributed within the emitter's area, i.e. more particles will be generated near the center of the emitter and fewer towards the edges
+- `(n: number) => vec2`: a function that returns a position for each particle, where `n` is the index of the particle being emitted (maybe useful if we're emitting multiple particles in a single frame)
+
+#### `particles.speed`
+
+Define the initial speed of particles:
+
+- `number`: a constant speed for all particles
+- `{ min: number, max: number }`: a range of speeds for particles, each particle will have a random speed within this range
+- `(n: number) => number`: a function that returns a speed for each particle, where `n` is the index of the particle being emitted
+
+#### `particles.direction`
+
+Define the initial direction of particles in radians (0 is right):
+
+- `number`: a constant direction for all particles
+- `{ min: number, max: number }`: a range of directions for particles, each particle will have a random direction within this range
+- `(n: number) => number`: a function that returns a direction for each particle, where `n` is the index of the particle being emitted
+
+#### `particles.size`
+
+Define the initial size of particles:
+
+- `{ x: number, y: number }`: a constant size for all particles
+- `{ min: { x, y }, max: { x, y } }`: a range of sizes for particles, each particle will have a random size within this range
+- `(n: number) => { x: number, y: number }`: a function that returns a size for each particle, where `n` is the index of the particle being emitted
+
+#### `particles.rotation`
+
+Define the initial rotation of particles in radians (0 is right):
+
+- `null`: rotation will be calculated based on the particle's velocity
+- `number`: a constant rotation for all particles
+- `{ min: number, max: number }`: a range of rotations for particles, each particle will have a random rotation within this range
+- `(n: number) => number`: a function that returns a rotation for each particle, where `n` is the index of the particle being emitted
+
+#### `particles.lifespan`
+
+Define the lifespan of particles in seconds:
+
+- `number`: a constant lifespan for all particles
+- `{ min: number, max: number }`: a range of lifespans for particles, each particle will have a random lifespan within this range
+- `(n: number) => number`: a function that returns a lifespan for each particle, where `n` is the index of the particle being emitted
+
+#### `particles.style`
+
+There are a few default "built-in" styles:
+
+```ts
+{
+  // the size of the dot will be max(size.x, size.y)
+  style: 'dot';
+  color: Color | string | Color[] | string[]; // fixed or random color
+  glow?: {
+    color: Color | string | Color[] | string[];
+    amount: number;
+  };
+  fade?: {
+    in: number; // fade in duration in seconds
+    out: number; // fade out duration in seconds
+  };
+}
+```
+
+```ts
+{
+  // the size of the radial gradient will be max(size.x, size.y)
+  style: 'radial';
+  color: Color | string | Color[] | string[]; // fixed or random color
+  fade?: {
+    in: number; // fade in duration in seconds
+    out: number; // fade out duration in seconds
+  };
+}
+```
+
+```ts
+{
+  // the length of the line will be size.x, and the width will be size.y
+  style: 'line';
+  color: Color | string | Color[] | string[];
+  rotationOffset?: number; // how much to offset the particle's rotation in radians
+  glow?: {
+    color: Color | string | Color[] | string[];
+    amount: number;
+  };
+  fade?: {
+    in: number; // fade in duration in seconds
+    out: number; // fade out duration in seconds
+  };
+}
+```
+
+```ts
+{
+  // the size of the image is defined by size.x and size.y
+  style: 'image';
+  image: HTMLImageElement; // the image to render
+  rotationOffset?: number; // how much to offset the particle's rotation in radians
+}
+```
+
+#### `particles.options`
+
+```ts
+{
+  useAttractors: boolean; // whether particles from this emitter should be affected by attractors
+  useForceFields: boolean; // whether particles from this emitter should be affected by force fields
+  useColliders: boolean; // whether particles from this emitter should be affected by colliders
+
+  defaultUpdates: 'none' | 'all' | ParticleDefaultUpdateTypes;
+  update?: (system: ParticleSystem, dt: number) => void;
+
+  defaultDraws: 'none' | 'all' | ParticleDefaultDrawTypes;
+  preDraw?: (system: ParticleSystem, context: CanvasRenderingContext2D) => void;
+  postDraw?: (system: ParticleSystem, context: CanvasRenderingContext2D) => void;
+}
+```
+
+Default update types:
+- `age`: update the age of particles and handle disposal
+- `physics`: update the velocity of particles based on forces, collisions, etc.
+- `direction`: update the direction of particles based on their velocity
+- `position`: integrate the position of particles based on their velocity
+
+Default draw types:
+- `transforms`: apply transformations like translation and rotation
+- `fade`: apply fade in/out effects to particles
+- `styles`: render the particle's style (dot, radial, line, image)
+
+#### `emission`
+
+Various particle emission types are available:
+
+```ts
+{
+  // emit some number of particles per second
+  type: 'rate';
+  rate: number | { min: number, max: number };
+}
+```
+
+If rate is a random range, the rate will be updated every second.
+
+```ts
+{
+  // emit some number of particles immediately and then automatically dispose the emitter
+  type: 'burst';
+  n: number | { min: number, max: number };
+  delay?: number; // optional delay in seconds before emitting
+}
+```
+
+```ts
+{
+  // custom function, this will be called every frame and should return the number of particles to emit
+  type: 'custom';
+  f: () => number;
+}
+```
+
+## Attractors
+
+Attractors can attract or repel particles in range of the attractor.
+
+```ts
+new Attractor(
+  position: vec2, // { x: number, y: number }
+  range: number,
+  force: number, // negative for repulsion, positive for attraction
+  falloff: number,
+  lifespan: number // use -1 for infinite lifespan
+);
+```
+
+## Force Fields
+
+Force fields apply a force to all particles.
+
+```ts
+new ForceField(
+  force: vec2, // { x: number, y: number }
+  lifespan: number // use -1 for infinite lifespan
+);
+```
+
+## Colliders
+
+Colliders are used for detecting and handling collisions with particles.
+
+```ts
+new Collider(
+  geometry, // see below...
+  restitution: number, // how bouncy the collider is, 0 is no bounce, 1 is full bounce
+  friction: number, // how much friction the collider has, 0 is no friction,  1 is full friction
+);
+```
+
+### Collider Geometry
+
+Collider geometry can be defined in various ways:
+
+```ts
+{
+  type: 'circle';
+  position: vec2; // { x: number, y: number }
+  radius: number;
+}
+```
+
+```ts
+{
+  type: 'rectangle';
+  position: vec2; // { x: number, y: number }
+  size: vec2; // { x: number, y: number }
+  rotation?: number; // optional rotation in radians
+}
+```
+
+```ts
+{
+  type: 'polygon';
+  vertices: vec2[]; // array of vertices defining the polygon
+}
+```

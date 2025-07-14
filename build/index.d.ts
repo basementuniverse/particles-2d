@@ -91,14 +91,12 @@ export type ParticleStyle = ({
 } | {
     style: 'line';
     color: Color | string | Color[] | string[];
-    rotation?: number;
-    relativeRotation?: boolean;
+    rotationOffset?: number;
     glow?: GlowStyle;
 } | {
     style: 'image';
     image: HTMLImageElement;
-    rotation?: number;
-    relativeRotation?: boolean;
+    rotationOffset?: number;
 }) & {
     fade?: FadeStyle;
 };
