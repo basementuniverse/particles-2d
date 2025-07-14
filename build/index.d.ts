@@ -74,7 +74,7 @@ export type ParticleOptions = {
     postDraw?: (system: ParticleSystem, context: CanvasRenderingContext2D) => void;
 };
 type GlowStyle = {
-    color: Color | string;
+    color: Color | string | Color[] | string[];
     amount: number;
 };
 type FadeStyle = {
@@ -83,14 +83,14 @@ type FadeStyle = {
 };
 export type ParticleStyle = ({
     style: 'dot';
-    color: Color | string;
+    color: Color | string | Color[] | string[];
     glow?: GlowStyle;
 } | {
     style: 'radial';
-    color: Color | string;
+    color: Color | string | Color[] | string[];
 } | {
     style: 'line';
-    color: Color | string;
+    color: Color | string | Color[] | string[];
     rotation?: number;
     relativeRotation?: boolean;
     glow?: GlowStyle;
@@ -135,6 +135,9 @@ export declare class Particle {
     age: number;
     style: ParticleStyle | null;
     private actualRotation;
+    private actualColor;
+    private actualColorTransparent;
+    private actualGlowColor;
     private options;
     private _disposed;
     constructor(

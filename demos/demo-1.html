@@ -39,9 +39,17 @@ particleSystem.emitters.push(
           min: -Math.PI,
           max: Math.PI,
         },
-        size: { x: 5, y: 5 },
+        size: { x: 30, y: 30 },
         rotation: null,
         lifespan: 5,
+        style: {
+          style: 'radial',
+          color: ['#ff0000', '#00ff00', '#0000ff'],
+          fade: {
+            in: 0.5,
+            out: 2,
+          }
+        },
       },
       emission: {
         type: 'rate',

@@ -63,7 +63,10 @@ function isColorObject(color: Color | string): color is Color {
   );
 }
 
-function prepareColor(color: Color | string): string {
+function prepareColor(color: Color | string | Color[] | string[]): string {
+  if (Array.isArray(color)) {
+    return prepareColor(color[randomIntBetween(0, color.length - 1)]);
+  }
   if (isColorObject(color)) {
     return colorToString(color);
   }
@@ -244,12 +247,15 @@ function prepareDefaultDraws(
 }
 
 type GlowStyle = {
-  color: Color | string;
+  color: Color | string | Color[] | string[];
   amount: number;
 };
 
-function prepareGlow(context: CanvasRenderingContext2D, glow: GlowStyle) {
-  const actualColor = prepareColor(glow.color);
+function prepareGlow(
+  context: CanvasRenderingContext2D,
+  glow: GlowStyle,
+  actualColor: string = 'white'
+) {
   context.shadowColor = actualColor;
   context.shadowBlur = glow.amount;
   context.shadowOffsetX = 0;
@@ -264,16 +270,16 @@ type FadeStyle = {
 export type ParticleStyle = (
   | {
       style: 'dot';
-      color: Color | string;
+      color: Color | string | Color[] | string[];
       glow?: GlowStyle;
     }
   | {
       style: 'radial';
-      color: Color | string;
+      color: Color | string | Color[] | string[];
     }
   | {
       style: 'line';
-      color: Color | string;
+      color: Color | string | Color[] | string[];
       rotation?: number;
       relativeRotation?: boolean;
       glow?: GlowStyle;
@@ -297,6 +303,9 @@ export class Particle {
   public age: number = 0;
   public style: ParticleStyle | null = null;
   private actualRotation: number = 0;
+  private actualColor: string = '#fff';
+  private actualColorTransparent: string = '#fff0';
+  private actualGlowColor: string = '#fff';
   private options: ParticleOptions;
   private _disposed: boolean = false;
 
@@ -364,6 +373,17 @@ export class Particle {
       this.style = Object.assign({}, DEFAULT_PARTICLE_STYLE, style ?? {});
     }
     this.options = Object.assign({}, DEFAULT_PARTICLE_OPTIONS, options ?? {});
+
+    // Prepare colors
+    if (this.style && 'color' in this.style) {
+      this.actualColor = prepareColor(this.style.color);
+      this.actualColorTransparent = colorToString(
+        makeTransparent(this.actualColor)
+      );
+      if ('glow' in this.style) {
+        this.actualGlowColor = prepareColor(this.style.glow?.color ?? 'white');
+      }
+    }
   }
 
   public get disposed(): boolean {
@@ -445,12 +465,22 @@ export class Particle {
 
     // Optionally handle fade in/out effects
     if (defaultDraws.includes('fade') && this.style?.fade) {
-      const fadeIn = unlerp(this.age, 0, this.style.fade.in);
-      const fadeOut = unlerp(
-        this.age,
-        this.lifespan - this.style.fade.out,
-        this.lifespan
-      );
+      const fadeIn =
+        this.style.fade.in === 0
+          ? 1
+          : clamp(unlerp(0, this.style.fade.in, this.age), 0, 1);
+      const fadeOut =
+        this.style.fade.out === 0
+          ? 1
+          : clamp(
+              unlerp(
+                this.lifespan,
+                this.lifespan - this.style.fade.out,
+                this.age
+              ),
+              0,
+              1
+            );
       context.globalAlpha = clamp(fadeIn * fadeOut, 0, 1);
     }
 
@@ -465,11 +495,11 @@ export class Particle {
         case 'dot':
           // Dot style renders a circle with a fill color
           if (this.style.glow) {
-            prepareGlow(context, this.style.glow);
+            prepareGlow(context, this.style.glow, this.actualGlowColor);
           }
           circle(context, vec2(), Math.max(this.size.x, this.size.y) / 2, {
             fill: true,
-            fillColor: prepareColor(this.style.color),
+            fillColor: this.actualColor,
             stroke: false,
           });
           break;
@@ -478,8 +508,8 @@ export class Particle {
           // Radial style renders a radial gradient circle
           const size = Math.max(this.size.x, this.size.y) / 2;
           const gradient = context.createRadialGradient(0, 0, 0, 0, 0, size);
-          const startColor = prepareColor(this.style.color);
-          const endColor = colorToString(makeTransparent(this.style.color));
+          const startColor = this.actualColor;
+          const endColor = this.actualColorTransparent;
           gradient.addColorStop(0, startColor);
           gradient.addColorStop(1, endColor);
           context.fillStyle = gradient;
@@ -492,7 +522,7 @@ export class Particle {
         case 'line':
           // Line style renders a line segment with a stroke color
           if (this.style.glow) {
-            prepareGlow(context, this.style.glow);
+            prepareGlow(context, this.style.glow, this.actualGlowColor);
           }
           let angle = 0;
           if (this.style.relativeRotation) {
@@ -505,7 +535,7 @@ export class Particle {
           const vector = vec2.rot(vec2(length, 0), angle);
           line(context, vec2.scale(vector, -0.5), vec2.scale(vector, 0.5), {
             lineWidth,
-            strokeColor: prepareColor(this.style.color),
+            strokeColor: this.actualColor,
           });
           break;
 
