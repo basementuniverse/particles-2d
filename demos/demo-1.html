@@ -22,7 +22,7 @@ const context = canvas.getContext('2d');
 canvas.width = 800;
 canvas.height = 800;
 
-// DEMO 1: basic dot particles with random color, rate-based emission, and fade-in/fade-out
+// DEMO 1: basic dot particles with random color and an attractor
 
 const particleSystem = new ParticleSystem();
 particleSystem.emitters.push(
@@ -58,6 +58,20 @@ particleSystem.emitters.push(
         rate: 10,
       },
     }
+  )
+);
+particleSystem.attractors.push(
+  new Attractor(
+    { x: 500, y: 300 },
+    100,
+    100,
+    0.5
+  ),
+  new Attractor(
+    { x: 250, y: 550 },
+    100,
+    -20,
+    0.5
   )
 );
 
