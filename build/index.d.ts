@@ -81,6 +81,13 @@ type FadeStyle = {
     in: number;
     out: number;
 };
+type TrailStyle = {
+    length: number;
+    color?: Color | string | Color[] | string[];
+    width?: number;
+    widthDecay?: number;
+    segmentFade?: FadeStyle;
+};
 export type ParticleStyle = ({
     style: 'dot';
     color: Color | string | Color[] | string[];
@@ -99,6 +106,7 @@ export type ParticleStyle = ({
     rotationOffset?: number;
 }) & {
     fade?: FadeStyle;
+    trail?: TrailStyle;
 };
 export declare class Particle {
     /**
@@ -130,6 +138,7 @@ export declare class Particle {
      * Lifespan of the particle in seconds
      */
     lifespan: number;
+    private static readonly MINIMUM_TRAIL_MOVEMENT_THRESHOLD;
     age: number;
     style: ParticleStyle | null;
     private actualRotation;
@@ -138,6 +147,7 @@ export declare class Particle {
     private actualGlowColor;
     private options;
     private _disposed;
+    private trailPositions;
     constructor(
     /**
      * Initial position of the particle
@@ -194,6 +204,7 @@ export declare class Particle {
     get disposed(): boolean;
     get normalisedLifeRemaining(): number;
     update(system: ParticleSystem, dt: number): void;
+    private drawTrail;
     draw(system: ParticleSystem, context: CanvasRenderingContext2D): void;
 }
 export type EmitterOptions = {

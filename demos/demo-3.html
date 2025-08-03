@@ -22,7 +22,7 @@ const context = canvas.getContext('2d');
 canvas.width = 800;
 canvas.height = 800;
 
-// DEMO 1: basic dot particles with random color and some attractors
+// DEMO 3: particle trails
 
 const particleSystem = new ParticleSystem();
 particleSystem.emitters.push(
@@ -34,45 +34,42 @@ particleSystem.emitters.push(
       particles: {
         position: 'uniform',
         speed: {
-          min: 50,
+          min: 100,
           max: 100,
         },
         direction: {
           min: -Math.PI,
           max: Math.PI,
         },
-        size: { x: 30, y: 30 },
+        size: { x: 10, y: 10 },
         rotation: null,
         lifespan: 5,
         style: {
           style: 'dot',
-          color: ['#ff0000', '#00ff00', '#0000ff'],
+          color: ['#ff5500', '#ff9900', '#ffff00'],
           fade: {
-            in: 0.5,
-            out: 2,
+            in: 1,
+            out: 2.5,
+          },
+          trail: {
+            length: 10,
+            widthDecay: 1,
+            segmentFade: {
+              in: 0,
+              out: 10,
+            },
           },
         },
       },
       emission: {
         type: 'rate',
-        rate: 10,
+        rate: 4,
       },
     }
   )
 );
-particleSystem.attractors.push(
-  new Attractor(
-    { x: 500, y: 300 },
-    100,
-    100,
-    0.5
-  ),
-  new Attractor(
-    { x: 250, y: 550 },
-    100,
-    -20,
-    0.5
-  )
+particleSystem.forceFields.push(
+  new ForceField({ x: 0, y: -50 })
 );
 
 function loop() {

@@ -267,6 +267,14 @@ type FadeStyle = {
   out: number;
 };
 
+type TrailStyle = {
+  length: number;
+  color?: Color | string | Color[] | string[];
+  width?: number;
+  widthDecay?: number;
+  segmentFade?: FadeStyle;
+};
+
 export type ParticleStyle = (
   | {
       style: 'dot';
@@ -290,6 +298,7 @@ export type ParticleStyle = (
     }
 ) & {
   fade?: FadeStyle;
+  trail?: TrailStyle;
 };
 
 const DEFAULT_PARTICLE_STYLE: ParticleStyle = {
@@ -298,6 +307,8 @@ const DEFAULT_PARTICLE_STYLE: ParticleStyle = {
 };
 
 export class Particle {
+  private static readonly MINIMUM_TRAIL_MOVEMENT_THRESHOLD = 5;
+
   public age: number = 0;
   public style: ParticleStyle | null = null;
   private actualRotation: number = 0;
@@ -306,6 +317,7 @@ export class Particle {
   private actualGlowColor: string = '#fff';
   private options: ParticleOptions;
   private _disposed: boolean = false;
+  private trailPositions: vec2[] = [];
 
   public constructor(
     /**
@@ -382,6 +394,11 @@ export class Particle {
         this.actualGlowColor = prepareColor(this.style.glow?.color ?? 'white');
       }
     }
+
+    // Initialize trail positions with current position if trail is enabled
+    if (this.style?.trail) {
+      this.trailPositions.push(vec2(position));
+    }
   }
 
   public get disposed(): boolean {
@@ -449,6 +466,93 @@ export class Particle {
     if (defaultUpdates.includes('position')) {
       this.position = vec2.add(this.position, vec2.scale(this.velocity, dt));
     }
+
+    // Update trail positions if trail is enabled
+    if (this.style?.trail && defaultUpdates.includes('position')) {
+      // Only add new position if we've moved far enough from the last position
+      const lastPosition = this.trailPositions[this.trailPositions.length - 1];
+      if (
+        !lastPosition ||
+        distance(lastPosition, this.position) >=
+          Particle.MINIMUM_TRAIL_MOVEMENT_THRESHOLD
+      ) {
+        this.trailPositions.push(vec2(this.position));
+
+        // Keep only the most recent positions based on trail length
+        while (this.trailPositions.length > this.style.trail.length) {
+          this.trailPositions.shift();
+        }
+      }
+    }
+  }
+
+  private drawTrail(
+    context: CanvasRenderingContext2D,
+    particleAlpha: number = 1
+  ) {
+    if (!this.style?.trail || this.trailPositions.length < 2) {
+      return;
+    }
+
+    const trail = this.style.trail;
+    const segments = this.trailPositions.length - 1;
+
+    // Determine trail color
+    const trailColor = trail.color
+      ? prepareColor(trail.color)
+      : this.style.style !== 'image' && 'color' in this.style
+      ? this.actualColor
+      : null;
+
+    if (!trailColor) {
+      return; // No valid color available
+    }
+
+    // Determine base width
+    const baseWidth =
+      trail.width ??
+      (this.style.style === 'line'
+        ? this.size.y
+        : Math.max(this.size.x, this.size.y));
+
+    context.save();
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+
+    // Draw trail segments
+    const widthDecay = Math.min(1, trail.widthDecay ?? 1);
+    for (let i = 0; i < segments; i++) {
+      const start = this.trailPositions[i];
+      const end = this.trailPositions[i + 1];
+
+      // Calculate width based on decay
+      const progress = 1 - i / (segments - 1);
+      const decayFactor = 1 - progress * widthDecay;
+      const width = baseWidth * decayFactor;
+
+      // Calculate segment alpha based on fade settings
+      let alpha = 1;
+      if (trail.segmentFade) {
+        const fadeIn = trail.segmentFade.in
+          ? Math.min(1, 1 - i / trail.segmentFade.in)
+          : 1;
+        const fadeOut = trail.segmentFade.out
+          ? Math.min(1, 1 - (segments - i) / trail.segmentFade.out)
+          : 1;
+        alpha = Math.min(fadeIn, fadeOut);
+      }
+
+      // Draw segment
+      context.beginPath();
+      context.strokeStyle = trailColor;
+      context.lineWidth = width;
+      context.globalAlpha = alpha * particleAlpha;
+      context.moveTo(start.x, start.y);
+      context.lineTo(end.x, end.y);
+      context.stroke();
+    }
+
+    context.restore();
   }
 
   public draw(system: ParticleSystem, context: CanvasRenderingContext2D) {
@@ -456,12 +560,8 @@ export class Particle {
 
     context.save();
 
-    // Optionally apply transforms
-    if (defaultDraws.includes('transforms')) {
-      context.translate(this.position.x, this.position.y);
-    }
-
     // Optionally handle fade in/out effects
+    let fadeAlpha = 1;
     if (defaultDraws.includes('fade') && this.style?.fade) {
       const fadeIn =
         this.style.fade.in === 0
@@ -479,8 +579,20 @@ export class Particle {
               0,
               1
             );
-      context.globalAlpha = clamp(fadeIn * fadeOut, 0, 1);
+      fadeAlpha = clamp(fadeIn * fadeOut, 0, 1);
     }
+
+    // Draw trail before applying particle transforms
+    if (defaultDraws.includes('styles') && this.style?.trail) {
+      this.drawTrail(context, fadeAlpha);
+    }
+
+    // Optionally apply transforms
+    if (defaultDraws.includes('transforms')) {
+      context.translate(this.position.x, this.position.y);
+    }
+
+    context.globalAlpha = fadeAlpha;
 
     // Call custom pre-draw hook if provided
     if (this.options.preDraw) {
