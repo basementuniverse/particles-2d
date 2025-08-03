@@ -1,6 +1,6 @@
 {
   "name": "@basementuniverse/particles-2d",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A component for animating and rendering particles in 2d games",
   "main": "build/index.js",
   "types": "build/index.d.ts",
