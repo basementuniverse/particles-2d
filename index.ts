@@ -1029,7 +1029,8 @@ export class Collider {
   public constructor(
     public geometry: ColliderGeometry,
     public restitution: number = 0.5,
-    public friction: number = 0.5
+    public friction: number = 0.5,
+    public randomness: number = 0
   ) {}
 
   public handleCollision(particle: Particle) {
@@ -1086,11 +1087,24 @@ export class Collider {
     if (velocityAlongNormal > 0) {
       return; // Particle is moving away from the collider, no collision
     }
+
     // Calculate the impulse to apply to the particle
     const impulseMagnitude = -(1 + this.restitution) * velocityAlongNormal;
     const impulse = vec2.scale(normal, impulseMagnitude);
+
     // Apply the impulse to the particle's velocity
     particle.velocity = vec2.add(particle.velocity, impulse);
+
+    // Apply randomness to the particle's velocity
+    if (this.randomness > 0) {
+      // Get a random angle between -PI and PI, scaled by randomness
+      const randomAngle = randomBetween(
+        -Math.PI * this.randomness,
+        Math.PI * this.randomness
+      );
+      particle.velocity = vec2.rot(particle.velocity, randomAngle);
+    }
+
     // Apply friction to the particle's velocity
     const frictionImpulse = vec2.scale(
       vec2.sub(relativeVelocity, vec2.scale(normal, velocityAlongNormal)),

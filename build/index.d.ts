@@ -351,7 +351,8 @@ export declare class Collider {
     geometry: ColliderGeometry;
     restitution: number;
     friction: number;
-    constructor(geometry: ColliderGeometry, restitution?: number, friction?: number);
+    randomness: number;
+    constructor(geometry: ColliderGeometry, restitution?: number, friction?: number, randomness?: number);
     handleCollision(particle: Particle): void;
 }
 export {};

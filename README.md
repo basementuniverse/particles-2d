@@ -315,6 +315,7 @@ new Collider(
   geometry, // see below...
   restitution: number, // how bouncy the collider is, 0 is no bounce, 1 is full bounce
   friction: number, // how much friction the collider has, 0 is no friction,  1 is full friction
+  randomness: number // how much to randomly offset the direction of particles when they collide, 0 is no randomness, 1 is full randomness (the particle will be offset randomly +/- PI radians)
 );
 ```
 
