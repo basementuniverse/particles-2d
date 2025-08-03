@@ -219,6 +219,32 @@ There are a few default "built-in" styles:
   style: 'image';
   image: HTMLImageElement; // the image to render
   rotationOffset?: number; // how much to offset the particle's rotation in radians
+  fade?: {
+    in: number; // fade in duration in seconds
+    out: number; // fade out duration in seconds
+  };
+}
+```
+
+#### `particles.style.trail`
+
+Particles can optionally have a trail effect.
+
+```ts
+{
+  // the size of the image is defined by size.x and size.y
+  style: '...';
+  // other style options (see above)...
+  trail: {
+    length: number; // how many trail segments to keep
+    color?: Color | string | Color[] | string[]; // fixed or random color for the trail, if not provided we use the particle's color
+    width?: number; // width of the trail segments, if not provided we use the particle's size
+    widthDecay?: number; // how much to decay the width of the trail segments, 0 means no decay, 1 means full decay (the trail will disappear over its length), negative numbers cause the trail to grow wider over its length
+    segmentFade?: {
+      in: number; // how many segments to fade in at the start of the trail
+      out: number; // how many segments to fade out at the end of the trail
+    };
+  }
 }
 ```
 
