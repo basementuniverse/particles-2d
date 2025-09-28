@@ -1,6 +1,6 @@
 {
   "name": "@basementuniverse/particles-2d",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "A component for animating and rendering particles in 2d games",
   "author": "Gordon Larrigan <gordonlarrigan@gmail.com> (https://gordonlarrigan.com)",
   "license": "MIT",
