@@ -63,15 +63,15 @@ particleSystem.emitters.push(
 particleSystem.attractors.push(
   new Attractor(
     { x: 500, y: 300 },
-    100,
-    100,
-    0.5
+    150,
+    2000,
+    0.4
   ),
   new Attractor(
     { x: 250, y: 550 },
     100,
-    -20,
-    0.5
+    -5000,
+    1
   )
 );
 
@@ -89,6 +89,36 @@ function update() {
 function draw() {
   context.clearRect(0, 0, canvas.width, canvas.height);
   particleSystem.draw(context);
+
+  drawCross({ x: 400, y: 400 });
+  particleSystem.attractors.forEach(attractor => {
+    drawCross(attractor.position);
+    drawCircle(attractor.position, attractor.range);
+  });
+}
+
+function drawCross(position) {
+  context.save();
+  context.lineWidth = 2;
+  context.strokeStyle = '#fff';
+  context.beginPath();
+  context.moveTo(position.x - 10, position.y);
+  context.lineTo(position.x + 10, position.y);
+  context.moveTo(position.x, position.y - 10);
+  context.lineTo(position.x, position.y + 10);
+  context.stroke();
+  context.restore();
+}
+
+function drawCircle(position, radius) {
+  context.save();
+  context.lineWidth = 1;
+  context.strokeStyle = '#fff';
+  context.setLineDash([5, 5]);
+  context.beginPath();
+  context.arc(position.x, position.y, radius, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
 }
 
 loop();

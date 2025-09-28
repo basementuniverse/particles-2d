@@ -1064,15 +1064,32 @@ export class Attractor {
       return; // Particle is out of range
     }
 
-    // Calculate force based on distance and falloff
-    const falloffFactor = 1 - Math.min(1, d / this.range);
-    const force = vec2.scale(
-      vec2.sub(this.position, particle.position),
-      (this.force * falloffFactor) / Math.pow(d, this.falloff)
-    );
+    // Prevent divide-by-zero with a small minimum distance
+    const minDistance = 1;
+    const safeDistance = Math.max(d, minDistance);
+
+    // Calculate direction vector from particle to attractor
+    const direction = vec2.sub(this.position, particle.position);
+    const normalizedDirection = vec2.nor(direction);
+
+    // Use configurable falloff instead of fixed inverse square law
+    // Higher falloff values create steeper gradients (stronger close-range effects)
+    // Lower falloff values create gentler gradients (more uniform force fields)
+    const distanceFactor = 1 / Math.pow(safeDistance, this.falloff);
+
+    // Apply smooth range falloff at the boundary
+    const rangeFactor = d / this.range;
+    const rangeFalloff = Math.max(0, 1 - rangeFactor * rangeFactor);
+
+    // Calculate final force vector
+    const finalForceStrength = this.force * distanceFactor * rangeFalloff;
+    const forceVector = vec2.scale(normalizedDirection, finalForceStrength);
 
     // Apply the force to the particle's velocity
-    particle.velocity = vec2.add(particle.velocity, vec2.scale(force, dt));
+    particle.velocity = vec2.add(
+      particle.velocity,
+      vec2.scale(forceVector, dt)
+    );
   }
 
   public update(dt: number) {
