@@ -21,6 +21,7 @@ import {
   Attractor,
   ForceField,
   Collider,
+  Sink,
 } from '@basementuniverse/particles-2d';
 ```
 
@@ -47,6 +48,10 @@ particleSystem.forceFields.push(
 
 particleSystem.colliders.push(
   new Collider(/* See below for options */)
+);
+
+particleSystem.sinks.push(
+  new Sink(/* See below for options */)
 );
 ```
 
@@ -255,6 +260,7 @@ Particles can optionally have a trail effect.
   useAttractors: boolean; // whether particles from this emitter should be affected by attractors
   useForceFields: boolean; // whether particles from this emitter should be affected by force fields
   useColliders: boolean; // whether particles from this emitter should be affected by colliders
+  useSinks: boolean; // whether particles from this emitter should be affected by sinks
 
   defaultUpdates: 'none' | 'all' | ParticleDefaultUpdateTypes;
   update?: (system: ParticleSystem, dt: number) => void;
@@ -371,4 +377,50 @@ Collider geometry can be defined in various ways:
   type: 'polygon';
   vertices: vec2[]; // array of vertices defining the polygon
 }
+```
+
+## Sinks
+
+Sinks destroy or fade out particles within range of the sink.
+
+```ts
+new Sink(
+  position: vec2, // { x: number, y: number }
+  range: number, // range of effect
+  strength: number, // how fast to accelerate particle aging (multiplier)
+  falloff: number, // distance-based effect gradient (higher = stronger at center)
+  mode: 'instant' | 'fade', // 'instant' destroys immediately, 'fade' accelerates aging
+  lifespan: number // use -1 for infinite lifespan
+);
+```
+
+Sinks use age acceleration to destroy particles:
+
+- **'instant' mode**: particles are immediately disposed when they enter the sink's range
+- **'fade' mode**: particles age faster within the sink's range, causing them to naturally reach their lifespan and trigger any configured fade-out effects
+
+The `strength` parameter determines how much faster particles age (e.g., `strength = 5` means particles age 5x faster). The `falloff` parameter creates a distance-based gradient, making the effect stronger near the center of the sink.
+
+### Example Use Cases
+
+```ts
+// Gradual fade sink (respects particle fade settings)
+system.sinks.push(new Sink(
+  { x: 750, y: 50 },  // position at HUD element
+  60,                  // range
+  5,                   // 5x aging acceleration
+  0.8,                 // gentle falloff
+  'fade',              // respect fade-out settings
+  3                    // dispose sink after 3 seconds
+));
+
+// Instant destruction sink
+system.sinks.push(new Sink(
+  { x: 400, y: 300 },
+  40,
+  Infinity,            // not used in instant mode
+  1,
+  'instant',           // particles vanish immediately
+  -1                   // permanent
+));
 ```

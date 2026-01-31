@@ -91,6 +91,7 @@ export class ParticleSystem {
   public attractors: Attractor[] = [];
   public forceFields: ForceField[] = [];
   public colliders: Collider[] = [];
+  public sinks: Sink[] = [];
 
   public update(dt: number) {
     // Update particles
@@ -126,6 +127,14 @@ export class ParticleSystem {
     this.forceFields = this.forceFields.filter(
       forceField => !forceField.disposed
     );
+
+    // Update sinks
+    this.sinks.forEach(sink => {
+      if (!sink.disposed) {
+        sink.update(dt);
+      }
+    });
+    this.sinks = this.sinks.filter(sink => !sink.disposed);
   }
 
   public draw(context: CanvasRenderingContext2D) {
@@ -170,6 +179,11 @@ export type ParticleOptions = {
    * Should this particle be affected by colliders
    */
   useColliders: boolean;
+
+  /**
+   * Should this particle be affected by sinks
+   */
+  useSinks: boolean;
 
   /**
    * What kind of default update logic to apply. This can be 'all', 'none', or
@@ -220,6 +234,7 @@ const DEFAULT_PARTICLE_OPTIONS: ParticleOptions = {
   useAttractors: true,
   useForceFields: true,
   useColliders: true,
+  useSinks: true,
   defaultUpdates: 'all',
   defaultDraws: 'all',
 };
@@ -426,7 +441,7 @@ export class Particle {
     }
 
     // Optionally handle particle physics, i.e. forces from attractors, force
-    // fields, and colliders
+    // fields, colliders, and sinks
     if (defaultUpdates.includes('physics')) {
       if (this.options.useAttractors) {
         system.attractors.forEach(attractor => {
@@ -440,6 +455,14 @@ export class Particle {
         system.forceFields.forEach(forceField => {
           if (!forceField.disposed) {
             forceField.applyForce(this, dt);
+          }
+        });
+      }
+
+      if (this.options.useSinks) {
+        system.sinks.forEach(sink => {
+          if (!sink.disposed) {
+            sink.affect(this, dt);
           }
         });
       }
@@ -501,8 +524,8 @@ export class Particle {
     const trailColor = trail.color
       ? prepareColor(trail.color)
       : this.style.style !== 'image' && 'color' in this.style
-      ? this.actualColor
-      : null;
+        ? this.actualColor
+        : null;
 
     if (!trailColor) {
       return; // No valid color available
@@ -1127,6 +1150,71 @@ export class ForceField {
     this.age += dt;
 
     // Dispose the force field when its lifespan is reached
+    if (this.lifespan !== -1 && this.age >= this.lifespan) {
+      this._disposed = true;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Sinks
+// -----------------------------------------------------------------------------
+
+export class Sink {
+  public age: number = 0;
+  private _disposed: boolean = false;
+
+  public constructor(
+    public position: vec2,
+    public range: number = 50,
+    public strength: number = 1,
+    public falloff: number = 1,
+    public mode: 'instant' | 'fade' = 'fade',
+    public lifespan: number = -1
+  ) {}
+
+  public get disposed(): boolean {
+    return this._disposed;
+  }
+
+  public affect(particle: Particle, dt: number) {
+    // Calculate distance to the particle
+    const d = distance(this.position, particle.position);
+    if (d > this.range) {
+      return; // Particle is out of range
+    }
+
+    // Instant mode: immediately set particle age to its lifespan
+    if (this.mode === 'instant') {
+      particle.age = particle.lifespan;
+      return;
+    }
+
+    // Fade mode: accelerate particle aging based on strength and falloff
+    // Prevent divide-by-zero with a small minimum distance
+    const minDistance = 1;
+    const safeDistance = Math.max(d, minDistance);
+
+    // Use configurable falloff to create distance-based effect gradient
+    // Higher falloff values create steeper gradients (stronger at center)
+    // Lower falloff values create gentler gradients (more uniform effect)
+    const distanceFactor = 1 / Math.pow(safeDistance, this.falloff);
+
+    // Apply smooth range falloff at the boundary
+    const rangeFactor = d / this.range;
+    const rangeFalloff = Math.max(0, 1 - rangeFactor * rangeFactor);
+
+    // Calculate final aging multiplier
+    const agingMultiplier = this.strength * distanceFactor * rangeFalloff;
+
+    // Accelerate particle aging
+    particle.age += agingMultiplier * dt;
+  }
+
+  public update(dt: number) {
+    this.age += dt;
+
+    // Dispose the sink when its lifespan is reached
     if (this.lifespan !== -1 && this.age >= this.lifespan) {
       this._disposed = true;
     }

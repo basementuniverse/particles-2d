@@ -15,6 +15,7 @@ export declare class ParticleSystem {
     attractors: Attractor[];
     forceFields: ForceField[];
     colliders: Collider[];
+    sinks: Sink[];
     update(dt: number): void;
     draw(context: CanvasRenderingContext2D): void;
 }
@@ -35,6 +36,10 @@ export type ParticleOptions = {
      * Should this particle be affected by colliders
      */
     useColliders: boolean;
+    /**
+     * Should this particle be affected by sinks
+     */
+    useSinks: boolean;
     /**
      * What kind of default update logic to apply. This can be 'all', 'none', or
      * an array of specific updates to apply:
@@ -343,6 +348,20 @@ export declare class ForceField {
     constructor(force?: vec2, lifespan?: number);
     get disposed(): boolean;
     applyForce(particle: Particle, dt: number): void;
+    update(dt: number): void;
+}
+export declare class Sink {
+    position: vec2;
+    range: number;
+    strength: number;
+    falloff: number;
+    mode: 'instant' | 'fade';
+    lifespan: number;
+    age: number;
+    private _disposed;
+    constructor(position: vec2, range?: number, strength?: number, falloff?: number, mode?: 'instant' | 'fade', lifespan?: number);
+    get disposed(): boolean;
+    affect(particle: Particle, dt: number): void;
     update(dt: number): void;
 }
 export type ColliderGeometry = {

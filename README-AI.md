@@ -11,6 +11,7 @@ class ParticleSystem {
   attractors: Attractor[]
   forceFields: ForceField[]
   colliders: Collider[]
+  sinks: Sink[]
 
   update(dt: number): void
   draw(context: CanvasRenderingContext2D): void
@@ -107,6 +108,26 @@ class Collider {
 }
 ```
 
+### Sink
+Destroys or fades out particles within range using age acceleration.
+```typescript
+class Sink {
+  constructor(
+    position: vec2,
+    range: number,
+    strength: number,  // aging acceleration multiplier
+    falloff: number,   // distance-based gradient
+    mode: 'instant' | 'fade',  // instant disposal or gradual fade
+    lifespan: number  // -1 for infinite
+  )
+
+  age: number
+  disposed: boolean
+  affect(particle: Particle, dt: number): void
+  update(dt: number): void
+}
+```
+
 ## Type Definitions
 
 ### vec2
@@ -165,6 +186,7 @@ type ParticleOptions = {
   useAttractors: boolean
   useForceFields: boolean
   useColliders: boolean
+  useSinks: boolean
   defaultUpdates: 'none' | 'all' | Array<'age' | 'physics' | 'direction' | 'position'>
   update?: (system: ParticleSystem, dt: number) => void
   defaultDraws: 'none' | 'all' | Array<'transforms' | 'fade' | 'styles'>
@@ -254,6 +276,16 @@ system.colliders.push(new Collider(
   0.2   // randomness
 ));
 
+// Add sink
+system.sinks.push(new Sink(
+  { x: 750, y: 50 },  // position
+  60,                 // range
+  5,                  // strength (5x aging)
+  0.8,                // falloff
+  'fade',             // mode
+  -1                  // lifespan
+));
+
 // Game loop
 function loop() {
   const dt = 1 / 60;
@@ -268,7 +300,7 @@ function loop() {
 
 - Particles auto-dispose when age >= lifespan
 - Emitters auto-dispose when age >= lifespan (if not -1)
-- Attractors/ForceFields auto-dispose when age >= lifespan (if not -1)
+- Attractors/ForceFields/Sinks auto-dispose when age >= lifespan (if not -1)
 - Burst emitters auto-dispose after emission
 - Rotation null = auto-calculate from velocity vector
 - Colors can be single value or array (random selection)
@@ -282,3 +314,6 @@ function loop() {
 - Force field force applied every frame: velocity += force * dt
 - Attractor force decreases with distance^falloff
 - Collider randomness: ±randomness * Math.PI offset on bounce
+- Sink 'instant' mode: immediately sets particle.age = particle.lifespan
+- Sink 'fade' mode: accelerates aging by strength * distanceFactor * rangeFalloff
+- Sink effect stronger at center (controlled by falloff parameter)
