@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Particle System Editor</title>
+    <link rel="stylesheet" href="main.css" />
+    <script src="../build/index.js"></script>
+    <script src="e2.min.js"></script>
+    <script src="canvas-helpers.js"></script>
+    <script src="debug.js"></script>
+    <script src="editor.js"></script>
+  </head>
+  <body>
+    <main>
+      <e2-app id="app" theme="dark">
+        <section class="layout">
+          <!-- Toolbar -->
+          <header>
+            <e2-toolbar>
+              <e2-toolbar-button
+                id="new-toolbar-button"
+                label="New"
+                icon="📄"
+                action="new"
+              ></e2-toolbar-button>
+              <e2-toolbar-button
+                id="open-toolbar-button"
+                label="Open"
+                icon="📁"
+                action="open"
+              ></e2-toolbar-button>
+              <e2-toolbar-button
+                id="save-toolbar-button"
+                label="Save"
+                icon="💾"
+                action="save"
+              ></e2-toolbar-button>
+              <e2-toolbar-separator></e2-toolbar-separator>
+              <e2-toolbar-button
+                id="undo-toolbar-button"
+                label="Undo"
+                icon="↩️"
+                action="undo"
+                disabled
+              ></e2-toolbar-button>
+              <e2-toolbar-button
+                id="redo-toolbar-button"
+                label="Redo"
+                icon="↪️"
+                action="redo"
+                disabled
+              ></e2-toolbar-button>
+              <e2-toolbar-separator></e2-toolbar-separator>
+              <e2-toolbar-button
+                id="new-emitter-toolbar-button"
+                label="Emitter"
+                icon="💥"
+                action="new-emitter"
+              ></e2-toolbar-button>
+              <e2-toolbar-button
+                id="new-attractor-toolbar-button"
+                label="Attractor"
+                icon="🧲"
+                action="new-attractor"
+              ></e2-toolbar-button>
+              <e2-toolbar-button
+                id="new-forcefield-toolbar-button"
+                label="Force Field"
+                icon="➡️"
+                action="new-forcefield"
+              ></e2-toolbar-button>
+              <e2-toolbar-button
+                id="new-collider-toolbar-button"
+                label="Collider"
+                icon="⬜"
+                action="new-collider"
+              ></e2-toolbar-button>
+              <e2-toolbar-separator></e2-toolbar-separator>
+              <e2-toolbar-button
+                id="delete-toolbar-button"
+                label="Delete"
+                icon="🗑️"
+                action="delete"
+                disabled
+              ></e2-toolbar-button>
+              <e2-toolbar-separator></e2-toolbar-separator>
+              <e2-toolbar-button
+                id="play-toolbar-button"
+                label="Play"
+                icon="▶️"
+                action="play"
+              ></e2-toolbar-button>
+              <e2-toolbar-button
+                id="pause-toolbar-button"
+                label="Pause"
+                icon="⏸️"
+                action="pause"
+                disabled
+              ></e2-toolbar-button>
+              <e2-toolbar-button
+                id="reset-toolbar-button"
+                label="Reset"
+                icon="🔄"
+                action="reset"
+              ></e2-toolbar-button>
+              <e2-toolbar-separator></e2-toolbar-separator>
+              <e2-toolbar-button
+                id="settings-toolbar-button"
+                label="Settings"
+                icon="⚙️"
+                action="settings"
+              ></e2-toolbar-button>
+              <span class="spacer"></span>
+              <label class="theme-switch">
+                <input type="checkbox" />
+                <span class="slider" data-off="🌞" data-on="🌙"></span>
+              </label>
+            </e2-toolbar>
+          </header>
+
+          <section class="main">
+            <!-- Tree view -->
+            <aside class="tree">
+              <e2-collapsible-panel orientation="horizontal" resize-right>
+                <span slot="title">Scene Nodes</span>
+                <e2-tree-view id="scene-tree" class="has-nodes"></e2-tree-view>
+              </e2-collapsible-panel>
+            </aside>
+
+            <!-- Editor canvas -->
+            <section class="content">
+              <canvas id="editor-canvas" class="has-nodes"></canvas>
+            </section>
+
+            <!-- Properties panel -->
+            <aside class="properties">
+              <e2-collapsible-panel
+                orientation="horizontal"
+                resize-left
+                collapsed
+              >
+                <span slot="title" id="properties-title">Properties</span>
+                <div class="properties-container">
+                  <e2-keyvalue-editor id="property-editor"></e2-keyvalue-editor>
+                </div>
+              </e2-collapsible-panel>
+            </aside>
+
+            <!-- History panel -->
+            <aside class="history">
+              <e2-collapsible-panel
+                orientation="horizontal"
+                resize-left
+                collapsed
+              >
+                <span slot="title">History</span>
+                <e2-list-view
+                  id="history-list"
+                  view-mode="details"
+                ></e2-list-view>
+              </e2-collapsible-panel>
+            </aside>
+          </section>
+
+          <!-- Status bar -->
+          <footer>
+            <e2-status-bar id="status-bar">
+              <e2-status-section slot="left" position="left">
+                <e2-status-item
+                  id="selected-status"
+                  type="indicator"
+                  label="Selected"
+                  value="None"
+                ></e2-status-item>
+                <e2-status-item
+                  id="mouse-status"
+                  type="text"
+                  label="Mouse"
+                  value="(0, 0)"
+                ></e2-status-item>
+              </e2-status-section>
+              <e2-status-section slot="right" position="right">
+                <e2-status-item
+                  id="particles-status"
+                  type="text"
+                  label="Particles"
+                  value="0"
+                ></e2-status-item>
+                <e2-status-item
+                  id="fps-status"
+                  type="text"
+                  label="FPS"
+                  value="0"
+                ></e2-status-item>
+              </e2-status-section>
+            </e2-status-bar>
+          </footer>
+        </section>
+
+        <!-- Context menu -->
+        <e2-context-menu target=".has-nodes">
+          <e2-context-menu-item
+            id="new-emitter-context-menu-item"
+            label="New Emitter"
+            icon="💥"
+            action="new-emitter-context"
+          ></e2-context-menu-item>
+          <e2-context-menu-item
+            id="new-attractor-context-menu-item"
+            label="New Attractor"
+            icon="🧲"
+            action="new-attractor-context"
+          ></e2-context-menu-item>
+          <e2-context-menu-item
+            id="new-forcefield-context-menu-item"
+            label="New Force Field"
+            icon="➡️"
+            action="new-forcefield-context"
+          ></e2-context-menu-item>
+          <e2-context-menu-item
+            id="new-collider-context-menu-item"
+            label="New Collider"
+            icon="⬜"
+            action="new-collider-context"
+          ></e2-context-menu-item>
+          <e2-context-menu-separator id="context-separator"></e2-context-menu-separator>
+          <e2-context-menu-item
+            id="delete-context-menu-item"
+            label="Delete"
+            icon="🗑️"
+            action="delete-context"
+          ></e2-context-menu-item>
+        </e2-context-menu>
+
+        <!-- Notification container -->
+        <e2-notification-container
+          id="notification-container"
+          position="bottom-right"
+          max-notifications="5"
+          stack-direction="up"
+          spacing="medium"
+        >
+        </e2-notification-container>
+
+        <!-- Name prompt -->
+        <e2-prompt
+          id="name-prompt"
+          title="Particle System Name"
+          label="Enter a name for the particle system:"
+          placeholder="Particle System name..."
+          required="true"
+        ></e2-prompt>
+
+        <!-- Settings dialog -->
+        <e2-dialog id="settings-dialog" title="Settings" closable theme="dark">
+          <e2-keyvalue-editor id="settings-editor"></e2-keyvalue-editor>
+          <div slot="footer">
+            <button id="close-settings-dialog-button">Close</button>
+          </div>
+        </e2-dialog>
+
+        <!-- Particle Options dialog -->
+        <e2-dialog id="particle-options-dialog" title="Particle Options" closable theme="dark">
+          <div class="particle-options-container">
+            <div class="particle-options-docs">
+              <h3>Particle Configuration</h3>
+              <p>Configure how particles are generated and behave.</p>
+
+              <h4>Position Distribution</h4>
+              <ul>
+                <li><code>uniform</code> - Particles spawn uniformly across emitter area</li>
+                <li><code>normal</code> - Particles spawn with normal (gaussian) distribution</li>
+              </ul>
+
+              <h4>Speed, Direction, Size</h4>
+              <p>Can be single values or ranges:</p>
+              <ul>
+                <li>Single number: <code>100</code></li>
+                <li>Number range: <code>{ "min": 50, "max": 150 }</code></li>
+                <li>Single vec2 (size): <code>{ "x": 10, "y": 10 }</code></li>
+                <li>Vec2 range (size): <code>{ "min": { "x": 5, "y": 5 }, "max": { "x": 20, "y": 20 } }</code></li>
+              </ul>
+
+              <h4>Rotation</h4>
+              <ul>
+                <li><code>null</code> - Auto-calculate from velocity</li>
+                <li>Number/Range - Rotation in radians</li>
+              </ul>
+
+              <h4>Style Types</h4>
+
+              <h5>Dot Style</h5>
+              <pre><code>{
+  "style": "dot",
+  "color": "#ff0000",
+  "glow": {
+    "color": "#ff8800",
+    "amount": 10
+  }
+}</code></pre>
+              <ul>
+                <li><code>color</code> - Required. Particle color(s)</li>
+                <li><code>glow</code> - Optional. Adds glow effect with color and amount</li>
+              </ul>
+
+              <h5>Radial Style</h5>
+              <pre><code>{
+  "style": "radial",
+  "color": ["#ff0000", "#ffff00"]
+}</code></pre>
+              <ul>
+                <li><code>color</code> - Required. Radial gradient color(s)</li>
+              </ul>
+
+              <h5>Line Style</h5>
+              <pre><code>{
+  "style": "line",
+  "color": "#00ff00",
+  "rotationOffset": 1.57,
+  "glow": {
+    "color": "#88ff88",
+    "amount": 5
+  }
+}</code></pre>
+              <ul>
+                <li><code>color</code> - Required. Line color(s)</li>
+                <li><code>rotationOffset</code> - Optional. Additional rotation in radians</li>
+                <li><code>glow</code> - Optional. Adds glow effect</li>
+              </ul>
+
+              <h5>Image Style</h5>
+              <pre><code>{
+  "style": "image",
+  "image": "path/to/image.png",
+  "rotationOffset": 0
+}</code></pre>
+              <ul>
+                <li><code>image</code> - Required. Path or URL to image (string or HTMLImageElement)</li>
+                <li><code>rotationOffset</code> - Optional. Additional rotation in radians</li>
+              </ul>
+
+              <h4>Colors</h4>
+              <p>Single color or array for random selection:</p>
+              <ul>
+                <li>Single: <code>"#ff0000"</code></li>
+                <li>Multiple: <code>["#ff0000", "#00ff00", "#0000ff"]</code></li>
+              </ul>
+
+              <h4>Fade</h4>
+              <p>Fade in/out times in seconds (applies to all styles):</p>
+              <pre><code>{
+  "fade": {
+    "in": 0.5,
+    "out": 1.0
+  }
+}</code></pre>
+
+              <h4>Trail</h4>
+              <p>Optional particle trail effect (applies to all styles):</p>
+              <pre><code>{
+  "trail": {
+    "length": 10,
+    "color": "#ff0000",
+    "width": 2,
+    "widthDecay": 1,
+    "segmentFade": {
+      "in": 2,
+      "out": 3
+    }
+  }
+}</code></pre>
+              <ul>
+                <li><code>length</code> - Required. Number of trail segments</li>
+                <li><code>color</code> - Optional. Trail color override (otherwise uses particle color)</li>
+                <li><code>width</code> - Optional. Trail width in pixels</li>
+                <li><code>widthDecay</code> - Optional. 0=no decay, 1=full decay, negative=grow</li>
+                <li><code>segmentFade</code> - Optional. Fade in/out for trail segments (number of segments)</li>
+              </ul>
+
+              <h4>Options</h4>
+              <ul>
+                <li><code>useAttractors</code> - Enable attractor forces</li>
+                <li><code>useForceFields</code> - Enable force fields</li>
+                <li><code>useColliders</code> - Enable collision detection</li>
+                <li><code>defaultUpdates</code> - Which default updates to run: <code>"all"</code>, <code>"none"</code>, or array</li>
+                <li><code>defaultDraws</code> - Which default draws to run: <code>"all"</code>, <code>"none"</code>, or array</li>
+              </ul>
+            </div>
+            <div class="particle-options-editor">
+              <textarea id="particle-options-json-editor"></textarea>
+            </div>
+          </div>
+          <div slot="footer">
+            <button id="particle-options-ok-button">OK</button>
+            <button id="particle-options-cancel-button">Cancel</button>
+          </div>
+        </e2-dialog>
+
+        <!-- Emission Options dialog -->
+        <e2-dialog id="emission-options-dialog" title="Emission Options" closable theme="dark">
+          <div class="particle-options-container">
+            <div class="particle-options-docs">
+              <h3>Emission Configuration</h3>
+              <p>Configure how particles are emitted over time.</p>
+
+              <h4>Emission Types</h4>
+
+              <h5>Rate Emission</h5>
+              <p>Continuously emits particles at a specified rate:</p>
+              <pre><code>{
+  "type": "rate",
+  "rate": 10
+}</code></pre>
+              <ul>
+                <li><code>rate</code> - Particles per second (can be number or range)</li>
+                <li>Single value: <code>10</code></li>
+                <li>Range: <code>{ "min": 5, "max": 15 }</code></li>
+              </ul>
+
+              <h5>Burst Emission</h5>
+              <p>Emits a specific number of particles at once:</p>
+              <pre><code>{
+  "type": "burst",
+  "n": 50,
+  "delay": 0
+}</code></pre>
+              <ul>
+                <li><code>n</code> - Number of particles to emit (can be number or range)</li>
+                <li><code>delay</code> - Optional delay before burst in seconds (default: 0)</li>
+                <li>Single value: <code>50</code></li>
+                <li>Range: <code>{ "min": 30, "max": 70 }</code></li>
+              </ul>
+
+              <h5>Custom Emission</h5>
+              <p>Use custom logic for emission (advanced):</p>
+              <pre><code>{
+  "type": "custom",
+  "f": "function() { return 1; }"
+}</code></pre>
+              <p><strong>Note:</strong> Custom functions cannot be edited in JSON format.</p>
+
+              <h4>Examples</h4>
+              <pre><code>// Steady stream
+{ "type": "rate", "rate": 20 }
+
+// Variable rate
+{
+  "type": "rate",
+  "rate": { "min": 10, "max": 30 }
+}
+
+// Single burst
+{ "type": "burst", "n": 100 }
+
+// Delayed burst
+{
+  "type": "burst",
+  "n": 50,
+  "delay": 2.0
+}</code></pre>
+            </div>
+            <div class="particle-options-editor">
+              <textarea id="emission-options-json-editor"></textarea>
+            </div>
+          </div>
+          <div slot="footer">
+            <button id="emission-options-ok-button">OK</button>
+            <button id="emission-options-cancel-button">Cancel</button>
+          </div>
+        </e2-dialog>
+      </e2-app>
+    </main>
+  </body>
+</html>
