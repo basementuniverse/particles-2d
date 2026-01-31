@@ -12,7 +12,7 @@ const editorState = {
   projectName: '',
   particleSystem: null,
   selectedObjectId: null,
-  contextObjectId: null,
+  contextNodeId: null,
   canvasSize: { x: 0, y: 0 },
   mousePosition: { x: 0, y: 0 },
   isDragging: false,
@@ -25,6 +25,7 @@ const editorState = {
   resizeStartMousePos: null,
   resizeStartObjectData: null,
   isPlaying: false,
+  showElements: true,
   lastFrameTime: 0,
   fpsCounter: 0,
   fpsTime: 0,
@@ -45,6 +46,7 @@ const editorState = {
     attractors: [],
     forceFields: [],
     colliders: [],
+    sinks: [],
   },
 };
 
@@ -111,6 +113,19 @@ const CANVAS_STYLES = {
       fillColor: '#aa000044',
       stroke: true,
       strokeColor: '#aa0000',
+      lineWidth: 2,
+    },
+    sinkUnselected: {
+      fill: false,
+      stroke: true,
+      strokeColor: '#9900cc80',
+      lineWidth: 2,
+      lineStyle: 'dotted',
+    },
+    sinkSelected: {
+      fill: false,
+      stroke: true,
+      strokeColor: '#9900cc',
       lineWidth: 2,
     },
     objectLabel: {
@@ -184,6 +199,19 @@ const CANVAS_STYLES = {
       fillColor: '#aa000044',
       stroke: true,
       strokeColor: '#aa0000',
+      lineWidth: 2,
+    },
+    sinkUnselected: {
+      fill: false,
+      stroke: true,
+      strokeColor: '#cc00ff80',
+      lineWidth: 2,
+      lineStyle: 'dotted',
+    },
+    sinkSelected: {
+      fill: false,
+      stroke: true,
+      strokeColor: '#cc00ff',
       lineWidth: 2,
     },
     objectLabel: {
@@ -372,6 +400,52 @@ const COLLIDER_SCHEMA = {
   required: ['id', 'geometry', 'restitution', 'friction', 'randomness'],
 };
 
+const SINK_SCHEMA = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', title: 'ID' },
+    position: {
+      type: 'object',
+      title: 'Position',
+      properties: {
+        x: { type: 'number', title: 'X' },
+        y: { type: 'number', title: 'Y' },
+      },
+    },
+    range: {
+      type: 'number',
+      title: 'Range',
+      minimum: 1,
+      description: 'Range of effect in pixels',
+    },
+    strength: {
+      type: 'number',
+      title: 'Strength',
+      minimum: 0,
+      description: 'Aging acceleration multiplier',
+    },
+    falloff: {
+      type: 'number',
+      title: 'Falloff',
+      minimum: 0,
+      maximum: 2,
+      description: 'Distance-based effect gradient (higher = stronger at center)',
+    },
+    mode: {
+      type: 'string',
+      title: 'Mode',
+      enum: ['instant', 'fade'],
+      description: 'instant = immediate disposal, fade = accelerated aging',
+    },
+    lifespan: {
+      type: 'number',
+      title: 'Lifespan',
+      description: 'Lifespan in seconds (-1 for infinite)',
+    },
+  },
+  required: ['id', 'position', 'range', 'strength', 'falloff', 'mode', 'lifespan'],
+};
+
 // Default object definitions
 const DEFAULT_EMITTER = {
   id: '',
@@ -396,6 +470,7 @@ const DEFAULT_EMITTER = {
         useAttractors: true,
         useForceFields: true,
         useColliders: true,
+        useSinks: true,
         defaultUpdates: 'all',
         defaultDraws: 'all',
       },
@@ -430,8 +505,19 @@ const DEFAULT_COLLIDER = {
   randomness: 0.2,
 };
 
+const DEFAULT_SINK = {
+  id: '',
+  type: 'sink',
+  position: { x: 400, y: 300 },
+  range: 100,
+  strength: 5,
+  falloff: 0.8,
+  mode: 'fade',
+  lifespan: -1,
+};
+
 // Particle System library
-let ParticleSystem, Emitter, Attractor, ForceField, Collider;
+let ParticleSystem, Emitter, Attractor, ForceField, Collider, Sink;
 
 // Debug library
 let Debug;
@@ -442,20 +528,22 @@ let drawGrid, drawCircle, drawRectangle, drawLine, drawArrow;
 // DOM elements
 let app, tree, content, properties, history;
 let canvas, context;
+let particleOptionsEditor, emissionOptionsEditor;
 let sceneTree, propertiesTitle, propertyEditor, historyView, settingsEditor;
 let newToolbarButton, openToolbarButton, saveToolbarButton;
 let undoToolbarButton, redoToolbarButton;
-let newEmitterToolbarButton, newAttractorToolbarButton, newForceFieldToolbarButton, newColliderToolbarButton;
+let newEmitterToolbarButton, newAttractorToolbarButton, newForceFieldToolbarButton, newColliderToolbarButton, newSinkToolbarButton;
 let deleteToolbarButton;
-let playToolbarButton, pauseToolbarButton, resetToolbarButton;
+let playToolbarButton, pauseToolbarButton, resetToolbarButton, toggleElementsToolbarButton;
 let settingsToolbarButton, themeSwitch;
 let statusBar, mouseStatusBarItem, selectedStatusBarItem, particlesStatusBarItem, fpsStatusBarItem;
 let settingsDialog, closeSettingsDialogButton;
 let particleOptionsDialog, particleOptionsJsonEditor, particleOptionsOkButton, particleOptionsCancelButton;
 let emissionOptionsDialog, emissionOptionsJsonEditor, emissionOptionsOkButton, emissionOptionsCancelButton;
-let newEmitterContextMenuItem, newAttractorContextMenuItem, newForceFieldContextMenuItem, newColliderContextMenuItem;
-let deleteContextMenuItem;
-let namePrompt;
+let newEmitterContextMenuItem, newAttractorContextMenuItem, newForceFieldContextMenuItem, newColliderContextMenuItem, newSinkContextMenuItem;
+let deleteContextMenuItem, loadImageContextMenuItem;
+let namePrompt, imageIdPrompt;
+let imageFileInput;
 
 // -----------------------------------------------------------------------------
 // Initialization
@@ -479,6 +567,7 @@ function initialiseEditor() {
   Attractor = PS.Attractor;
   ForceField = PS.ForceField;
   Collider = PS.Collider;
+  Sink = PS.Sink;
 
   // Check if Debug library is available
   Debug = window.default;
@@ -526,10 +615,12 @@ function initialiseEditor() {
   newAttractorToolbarButton = document.getElementById('new-attractor-toolbar-button');
   newForceFieldToolbarButton = document.getElementById('new-forcefield-toolbar-button');
   newColliderToolbarButton = document.getElementById('new-collider-toolbar-button');
+  newSinkToolbarButton = document.getElementById('new-sink-toolbar-button');
   deleteToolbarButton = document.getElementById('delete-toolbar-button');
   playToolbarButton = document.getElementById('play-toolbar-button');
   pauseToolbarButton = document.getElementById('pause-toolbar-button');
   resetToolbarButton = document.getElementById('reset-toolbar-button');
+  toggleElementsToolbarButton = document.getElementById('toggle-elements-toolbar-button');
   settingsToolbarButton = document.getElementById('settings-toolbar-button');
   themeSwitch = document.querySelector('.theme-switch input');
   statusBar = document.getElementById('status-bar');
@@ -552,8 +643,12 @@ function initialiseEditor() {
   newAttractorContextMenuItem = document.getElementById('new-attractor-context-menu-item');
   newForceFieldContextMenuItem = document.getElementById('new-forcefield-context-menu-item');
   newColliderContextMenuItem = document.getElementById('new-collider-context-menu-item');
+  newSinkContextMenuItem = document.getElementById('new-sink-context-menu-item');
   deleteContextMenuItem = document.getElementById('delete-context-menu-item');
+  loadImageContextMenuItem = document.getElementById('load-image-context-menu-item');
   namePrompt = document.getElementById('name-prompt');
+  imageIdPrompt = document.getElementById('image-id-prompt');
+  imageFileInput = document.getElementById('image-file-input');
 
   // Configure history view
   if (historyView) {
@@ -767,21 +862,22 @@ function setupEventListeners() {
 
     if (componentContext?.componentType === 'tree-view') {
       // Context menu shown from tree-view
-      let object = null;
+      let node = null;
       const treeContext = componentContext;
 
       if (treeContext.item) {
-        object = treeContext.item.data;
+        node = treeContext.item.data;
       }
 
-      editorState.contextObjectId = object?.id || null;
+      editorState.contextNodeId = node?.id || null;
+      console.log(editorState.contextNodeId);
     } else {
       // Context menu shown from canvas - check what's at mouse position
       const hoveredObjectId = findObjectAtPosition(
         editorState.mousePosition.x,
         editorState.mousePosition.y
       );
-      editorState.contextObjectId = hoveredObjectId;
+      editorState.contextNodeId = hoveredObjectId;
     }
 
     updateContextMenuButtons();
@@ -820,8 +916,7 @@ function setupEventListeners() {
   // Particle options dialog handlers
   particleOptionsOkButton?.addEventListener('click', () => {
     try {
-      const jsonValue = particleOptionsJsonEditor.value;
-      const particleOptions = JSON.parse(jsonValue);
+      const particleOptions = particleOptionsEditor.get();
 
       // Update the emitter's options.particles
       const obj = findObjectById(editorState.selectedObjectId);
@@ -847,8 +942,7 @@ function setupEventListeners() {
   // Emission options dialog handlers
   emissionOptionsOkButton?.addEventListener('click', () => {
     try {
-      const jsonValue = emissionOptionsJsonEditor.value;
-      const emissionOptions = JSON.parse(jsonValue);
+      const emissionOptions = emissionOptionsEditor.get();
 
       // Update the emitter's options.emission
       const obj = findObjectById(editorState.selectedObjectId);
@@ -869,6 +963,32 @@ function setupEventListeners() {
 
   emissionOptionsCancelButton?.addEventListener('click', () => {
     emissionOptionsDialog?.close();
+  });
+
+  // Image file input handler
+  imageFileInput?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await loadImageFile(file);
+    imageFileInput.value = ''; // Reset so same file can be loaded again
+  });
+
+  // Drag and drop for images
+  tree.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+
+  tree.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(file =>
+      file.type.startsWith('image/')
+    );
+
+    for (const file of files) {
+      await loadImageFile(file);
+    }
   });
 }
 
@@ -907,6 +1027,9 @@ async function handleToolbarAction(action) {
     case 'new-collider':
       createCollider();
       break;
+    case 'new-sink':
+      createSink();
+      break;
     case 'delete':
       if (editorState.selectedObjectId) {
         deleteObject(editorState.selectedObjectId);
@@ -921,6 +1044,9 @@ async function handleToolbarAction(action) {
     case 'reset':
       resetSimulation();
       break;
+    case 'toggle-elements':
+      toggleElementsVisibility();
+      break;
     case 'settings':
       settingsDialog?.showModal();
       break;
@@ -934,20 +1060,31 @@ function handleContextMenuAction(action) {
 
   switch (action) {
     case 'new-emitter-context':
-      createEmitter();
+      createEmitter(editorState.mousePosition);
       break;
     case 'new-attractor-context':
-      createAttractor();
+      createAttractor(editorState.mousePosition);
       break;
     case 'new-forcefield-context':
       createForceField();
       break;
     case 'new-collider-context':
-      createCollider();
+      createCollider(editorState.mousePosition);
+      break;
+    case 'new-sink-context':
+      createSink(editorState.mousePosition);
+      break;
+    case 'load-image-context':
+      imageFileInput?.click();
       break;
     case 'delete-context':
-      if (editorState.contextObjectId) {
-        deleteObject(editorState.contextObjectId);
+      if (editorState.contextNodeId) {
+        const obj = findObjectById(editorState.contextNodeId);
+        if (obj?.type === 'image') {
+          deleteImage(obj.id);
+        } else {
+          deleteObject(editorState.contextNodeId);
+        }
       }
       break;
     default:
@@ -1066,6 +1203,9 @@ function handleMouseResize(x, y) {
     case 'attractor':
       resizeAttractor(obj, edge, dx, dy);
       break;
+    case 'sink':
+      resizeSink(obj, edge, dx, dy);
+      break;
     case 'collider':
       if (obj.geometry.type === 'rectangle') {
         resizeRectangleCollider(obj, edge, dx, dy);
@@ -1121,6 +1261,43 @@ function resizeEmitter(obj, edge, dx, dy) {
 }
 
 function resizeAttractor(obj, edge, dx, dy) {
+  const startData = editorState.resizeStartObjectData;
+  const minRange = 10;
+
+  // Calculate radial distance change based on edge direction
+  let delta = 0;
+  switch (edge) {
+    case 'n':
+      delta = -dy;
+      break;
+    case 's':
+      delta = dy;
+      break;
+    case 'e':
+      delta = dx;
+      break;
+    case 'w':
+      delta = -dx;
+      break;
+    case 'ne':
+    case 'se':
+    case 'sw':
+    case 'nw':
+      // For diagonal directions, use average of both components
+      delta = (Math.abs(dx) + Math.abs(dy)) / 2;
+      // Determine sign based on whether we're moving outward or inward
+      const outward = (edge === 'ne' && (dx > 0 || dy < 0)) ||
+                      (edge === 'se' && (dx > 0 || dy > 0)) ||
+                      (edge === 'sw' && (dx < 0 || dy > 0)) ||
+                      (edge === 'nw' && (dx < 0 || dy < 0));
+      delta = outward ? delta : -delta;
+      break;
+  }
+
+  obj.range = Math.max(minRange, startData.range + delta);
+}
+
+function resizeSink(obj, edge, dx, dy) {
   const startData = editorState.resizeStartObjectData;
   const minRange = 10;
 
@@ -1238,6 +1415,27 @@ function detectResizeEdge(objectId, x, y) {
       }
       return null;
     }
+    case 'sink': {
+      const dx = x - obj.position.x;
+      const dy = y - obj.position.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (Math.abs(dist - obj.range) <= threshold) {
+        // Calculate angle to determine cursor direction
+        const angle = Math.atan2(dy, dx);
+        const PI = Math.PI;
+
+        // Map angle to 8 directions (n, ne, e, se, s, sw, w, nw)
+        if (angle >= -PI / 8 && angle < PI / 8) return 'e';
+        if (angle >= PI / 8 && angle < 3 * PI / 8) return 'se';
+        if (angle >= 3 * PI / 8 && angle < 5 * PI / 8) return 's';
+        if (angle >= 5 * PI / 8 && angle < 7 * PI / 8) return 'sw';
+        if (angle >= 7 * PI / 8 || angle < -7 * PI / 8) return 'w';
+        if (angle >= -7 * PI / 8 && angle < -5 * PI / 8) return 'nw';
+        if (angle >= -5 * PI / 8 && angle < -3 * PI / 8) return 'n';
+        if (angle >= -3 * PI / 8 && angle < -PI / 8) return 'ne';
+      }
+      return null;
+    }
     case 'collider': {
       if (obj.geometry.type === 'rectangle') {
         const halfSize = { x: obj.geometry.size.x / 2, y: obj.geometry.size.y / 2 };
@@ -1318,6 +1516,8 @@ function getObjectResizeData(obj) {
     case 'emitter':
       return { size: { ...obj.size } };
     case 'attractor':
+      return { range: obj.range };
+    case 'sink':
       return { range: obj.range };
     case 'collider':
       if (obj.geometry.type === 'rectangle') {
@@ -1488,7 +1688,9 @@ function newProject() {
     attractors: [],
     forceFields: [],
     colliders: [],
+    sinks: [],
   };
+  editorState.images = {};
   editorState.selectedObjectId = null;
   editorState.dirty = false;
 
@@ -1555,12 +1757,24 @@ async function saveProject() {
 }
 
 function serializeProject() {
+  // Serialize images with their data URLs
+  const serializedImages = {};
+  for (const [id, img] of Object.entries(editorState.images)) {
+    serializedImages[id] = {
+      id: img.id,
+      filename: img.filename,
+      dataUrl: img.dataUrl
+    };
+  }
+
   return {
     name: editorState.projectName,
     emitters: editorState.objects.emitters,
     attractors: editorState.objects.attractors,
     forceFields: editorState.objects.forceFields,
     colliders: editorState.objects.colliders,
+    sinks: editorState.objects.sinks,
+    images: serializedImages,
   };
 }
 
@@ -1578,7 +1792,25 @@ function loadProjectData(data) {
       attractors: data.attractors || [],
       forceFields: data.forceFields || [],
       colliders: data.colliders || [],
+      sinks: data.sinks || [],
     };
+  }
+
+  // Load images
+  editorState.images = {};
+  if (data.images) {
+    for (const [id, imgData] of Object.entries(data.images)) {
+      const img = new Image();
+      img.src = imgData.dataUrl;
+
+      editorState.images[id] = {
+        id: imgData.id,
+        filename: imgData.filename,
+        dataUrl: imgData.dataUrl,
+        element: img,
+        loaded: true
+      };
+    }
   }
 
   // Recreate particle system from data
@@ -1611,16 +1843,31 @@ function recreateParticleSystem() {
         useAttractors: true,
         useForceFields: true,
         useColliders: true,
+        useSinks: true,
         defaultUpdates: 'all',
         defaultDraws: 'all',
       };
+    }
+
+    // Deep clone the options to avoid modifying the original
+    const clonedOptions = JSON.parse(JSON.stringify(def.options));
+
+    // Convert image IDs to HTMLImageElements
+    if (clonedOptions?.particles?.style?.style === 'image') {
+      const imageId = clonedOptions.particles.style.image;
+      if (typeof imageId === 'string' && editorState.images[imageId]) {
+        clonedOptions.particles.style.image = editorState.images[imageId].element;
+      } else if (typeof imageId === 'string') {
+        console.warn(`Image ID "${imageId}" not found in loaded images`);
+        // Keep the string ID, but particle won't render properly
+      }
     }
 
     const emitter = new window.Emitter(
       def.position,
       def.size,
       def.lifespan,
-      def.options
+      clonedOptions
     );
     emitter._id = def.id;
     editorState.particleSystem.emitters.push(emitter);
@@ -1660,17 +1907,36 @@ function recreateParticleSystem() {
     collider._id = def.id;
     editorState.particleSystem.colliders.push(collider);
   }
+
+  // Recreate sinks
+  for (const def of editorState.objects.sinks) {
+    const sink = new window.Sink(
+      def.position,
+      def.range,
+      def.strength,
+      def.falloff,
+      def.mode,
+      def.lifespan
+    );
+    sink._id = def.id;
+    editorState.particleSystem.sinks.push(sink);
+  }
 }
 
 // -----------------------------------------------------------------------------
 // Object creation
 // -----------------------------------------------------------------------------
 
-function createEmitter() {
+function createEmitter(position) {
   const def = {
     ...JSON.parse(JSON.stringify(DEFAULT_EMITTER)),
     id: generateId('emitter'),
   };
+
+  // Use provided position or default
+  if (position) {
+    def.position = { x: position.x, y: position.y };
+  }
 
   const emitter = new window.Emitter(
     def.position,
@@ -1692,11 +1958,16 @@ function createEmitter() {
   console.log('Emitter created:', def.id);
 }
 
-function createAttractor() {
+function createAttractor(position) {
   const def = {
     ...JSON.parse(JSON.stringify(DEFAULT_ATTRACTOR)),
     id: generateId('attractor'),
   };
+
+  // Use provided position or default
+  if (position) {
+    def.position = { x: position.x, y: position.y };
+  }
 
   const attractor = new window.Attractor(
     def.position,
@@ -1743,11 +2014,16 @@ function createForceField() {
   console.log('Force field created:', def.id);
 }
 
-function createCollider() {
+function createCollider(position) {
   const def = {
     ...JSON.parse(JSON.stringify(DEFAULT_COLLIDER)),
     id: generateId('collider'),
   };
+
+  // Use provided position or default
+  if (position) {
+    def.geometry.position = { x: position.x, y: position.y };
+  }
 
   const collider = new window.Collider(
     def.geometry,
@@ -1767,6 +2043,39 @@ function createCollider() {
   updateTitle();
 
   console.log('Collider created:', def.id);
+}
+
+function createSink(position) {
+  const def = {
+    ...JSON.parse(JSON.stringify(DEFAULT_SINK)),
+    id: generateId('sink'),
+  };
+
+  // Use provided position or default
+  if (position) {
+    def.position = { x: position.x, y: position.y };
+  }
+
+  const sink = new window.Sink(
+    def.position,
+    def.range,
+    def.strength,
+    def.falloff,
+    def.mode,
+    def.lifespan
+  );
+  sink._id = def.id;
+
+  editorState.particleSystem.sinks.push(sink);
+  editorState.objects.sinks.push(def);
+
+  takeSnapshot('Create sink');
+  updateTreeView();
+  updateToolbarButtons();
+  editorState.dirty = true;
+  updateTitle();
+
+  console.log('Sink created:', def.id);
 }
 
 function deleteObject(id) {
@@ -1807,6 +2116,14 @@ function deleteObject(id) {
         c => c.id !== id
       );
       break;
+    case 'sink':
+      editorState.particleSystem.sinks = editorState.particleSystem.sinks.filter(
+        s => s._id !== id
+      );
+      editorState.objects.sinks = editorState.objects.sinks.filter(
+        s => s.id !== id
+      );
+      break;
   }
 
   if (editorState.selectedObjectId === id) {
@@ -1821,6 +2138,105 @@ function deleteObject(id) {
   updateTitle();
 
   console.log('Object deleted:', id);
+}
+
+// -----------------------------------------------------------------------------
+// Image management
+// -----------------------------------------------------------------------------
+
+async function loadImageFile(file) {
+  console.log('Loading image file:', file.name);
+
+  // Read file as data URL
+  const reader = new FileReader();
+
+  return new Promise((resolve, reject) => {
+    reader.onload = async (e) => {
+      const dataUrl = e.target.result;
+
+      // Create image element
+      const img = new Image();
+      img.onload = async () => {
+        // Prompt for image ID
+        const result = await imageIdPrompt.show();
+        if (!result) {
+          resolve();
+          return;
+        }
+
+        const imageId = result.trim();
+        if (!imageId) {
+          alert('Image ID cannot be empty');
+          resolve();
+          return;
+        }
+
+        // Check for duplicate ID
+        if (editorState.images[imageId]) {
+          alert(`An image with ID "${imageId}" already exists. Please choose a different ID.`);
+          resolve();
+          return;
+        }
+
+        // Store image
+        editorState.images[imageId] = {
+          id: imageId,
+          filename: file.name,
+          dataUrl: dataUrl,
+          element: img,
+          loaded: true
+        };
+
+        takeSnapshot(`Load image: ${imageId}`);
+        updateTreeView();
+        editorState.dirty = true;
+        updateTitle();
+
+        console.log('Image loaded:', imageId);
+        resolve();
+      };
+
+      img.onerror = () => {
+        alert('Failed to load image');
+        reject(new Error('Failed to load image'));
+      };
+
+      img.src = dataUrl;
+    };
+
+    reader.onerror = () => {
+      alert('Failed to read file');
+      reject(new Error('Failed to read file'));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+function deleteImage(imageId) {
+  if (!editorState.images[imageId]) return;
+
+  // Check if image is used in any emitter
+  const usedInEmitters = editorState.objects.emitters.filter(emitter => {
+    const style = emitter.options?.particles?.style;
+    return style?.style === 'image' && style?.image === imageId;
+  });
+
+  if (usedInEmitters.length > 0) {
+    const emitterIds = usedInEmitters.map(e => e.id).join(', ');
+    if (!confirm(`This image is used in emitters: ${emitterIds}. Delete anyway?`)) {
+      return;
+    }
+  }
+
+  delete editorState.images[imageId];
+
+  takeSnapshot(`Delete image: ${imageId}`);
+  updateTreeView();
+  editorState.dirty = true;
+  updateTitle();
+
+  console.log('Image deleted:', imageId);
 }
 
 // -----------------------------------------------------------------------------
@@ -1870,6 +2286,14 @@ function updateParticleSystemObject(psObject, def) {
       psObject.falloff = def.falloff;
       psObject.lifespan = def.lifespan;
       break;
+    case 'sink':
+      psObject.position = def.position;
+      psObject.range = def.range;
+      psObject.strength = def.strength;
+      psObject.falloff = def.falloff;
+      psObject.mode = def.mode;
+      psObject.lifespan = def.lifespan;
+      break;
     case 'forcefield':
       psObject.force = def.force;
       psObject.lifespan = def.lifespan;
@@ -1888,12 +2312,24 @@ function updateParticleSystemObject(psObject, def) {
 // -----------------------------------------------------------------------------
 
 function takeSnapshot(action) {
+  // Serialize images for snapshot (without HTMLImageElement, just metadata)
+  const serializedImages = {};
+  for (const [id, img] of Object.entries(editorState.images)) {
+    serializedImages[id] = {
+      id: img.id,
+      filename: img.filename,
+      dataUrl: img.dataUrl,
+      loaded: img.loaded
+    };
+  }
+
   const snapshot = {
     action,
     date: new Date(),
     state: JSON.parse(JSON.stringify({
       objects: editorState.objects,
     })),
+    images: serializedImages,
   };
 
   // Remove any snapshots after current index
@@ -1954,6 +2390,24 @@ function jumpToHistoryIndex(index) {
 
 function restoreSnapshot(snapshot) {
   editorState.objects = JSON.parse(JSON.stringify(snapshot.state.objects));
+
+  // Restore images
+  editorState.images = {};
+  if (snapshot.images) {
+    for (const [id, imgData] of Object.entries(snapshot.images)) {
+      const img = new Image();
+      img.src = imgData.dataUrl;
+
+      editorState.images[id] = {
+        id: imgData.id,
+        filename: imgData.filename,
+        dataUrl: imgData.dataUrl,
+        element: img,
+        loaded: imgData.loaded
+      };
+    }
+  }
+
   recreateParticleSystem();
   updateTreeView();
   updatePropertyEditor();
@@ -1987,6 +2441,13 @@ function resetSimulation() {
   playToolbarButton.removeAttribute('disabled');
   pauseToolbarButton.setAttribute('disabled', '');
   console.log('Simulation reset');
+}
+
+function toggleElementsVisibility() {
+  editorState.showElements = !editorState.showElements;
+  updateToolbarButtons();
+  render();
+  console.log('Elements visibility:', editorState.showElements);
 }
 
 // -----------------------------------------------------------------------------
@@ -2127,6 +2588,40 @@ function updateTreeView() {
       });
     }
 
+    // Add sinks
+    if (editorState.objects.sinks.length > 0) {
+      items.push({
+        id: '_sinks',
+        label: 'Sinks',
+        icon: '🕳️',
+        expanded: true,
+        children: editorState.objects.sinks.map(s => ({
+          id: s.id,
+          label: s.id,
+          icon: '🕳️',
+          data: s,
+        })),
+      });
+    }
+
+    // Add images
+    const imageIds = Object.keys(editorState.images);
+    items.push({
+      id: '_images',
+      label: 'Images',
+      icon: '🖼️',
+      expanded: true,
+      children: imageIds.map(id => {
+        const img = editorState.images[id];
+        return {
+          id: `image_${id}`,
+          label: `${id} (${img.filename})`,
+          icon: img.loaded ? '🖼️' : '❌',
+          data: { type: 'image', id: id, ...img },
+        };
+      }),
+    });
+
     sceneTree.items = items;
   } catch (error) {
     console.error('Error updating tree view:', error);
@@ -2178,6 +2673,9 @@ function updatePropertyEditor() {
         case 'collider':
           propertyEditor.schema = COLLIDER_SCHEMA;
           break;
+        case 'sink':
+          propertyEditor.schema = SINK_SCHEMA;
+          break;
         default:
           propertyEditor.schema = undefined;
       }
@@ -2228,11 +2726,13 @@ function updateToolbarButtons() {
     newAttractorToolbarButton?.removeAttribute('disabled');
     newForceFieldToolbarButton?.removeAttribute('disabled');
     newColliderToolbarButton?.removeAttribute('disabled');
+    newSinkToolbarButton?.removeAttribute('disabled');
   } else {
     newEmitterToolbarButton?.setAttribute('disabled', '');
     newAttractorToolbarButton?.setAttribute('disabled', '');
     newForceFieldToolbarButton?.setAttribute('disabled', '');
     newColliderToolbarButton?.setAttribute('disabled', '');
+    newSinkToolbarButton?.setAttribute('disabled', '');
   }
 
   // Delete button enabled when object selected
@@ -2250,6 +2750,16 @@ function updateToolbarButtons() {
     playToolbarButton?.setAttribute('disabled', '');
     pauseToolbarButton?.setAttribute('disabled', '');
     resetToolbarButton?.setAttribute('disabled', '');
+  }
+
+  // Toggle elements button
+  if (editorState.particleSystem) {
+    toggleElementsToolbarButton?.removeAttribute('disabled');
+    if (toggleElementsToolbarButton) {
+      toggleElementsToolbarButton.label = editorState.showElements ? 'Hide Elements' : 'Show Elements';
+    }
+  } else {
+    toggleElementsToolbarButton?.setAttribute('disabled', '');
   }
 
   // Undo/redo buttons
@@ -2272,15 +2782,23 @@ function updateContextMenuButtons() {
     newAttractorContextMenuItem?.removeAttribute('disabled');
     newForceFieldContextMenuItem?.removeAttribute('disabled');
     newColliderContextMenuItem?.removeAttribute('disabled');
+    newSinkContextMenuItem?.removeAttribute('disabled');
+    loadImageContextMenuItem?.removeAttribute('disabled');
   } else {
     newEmitterContextMenuItem?.setAttribute('disabled', '');
     newAttractorContextMenuItem?.setAttribute('disabled', '');
     newForceFieldContextMenuItem?.setAttribute('disabled', '');
     newColliderContextMenuItem?.setAttribute('disabled', '');
+    newSinkContextMenuItem?.setAttribute('disabled', '');
+    loadImageContextMenuItem?.setAttribute('disabled', '');
   }
 
-  // Delete context menu item enabled only when an object is selected (context clicked)
-  if (editorState.contextObjectId) {
+  // Check if context is on Images section or an image item
+  const obj = findObjectById(editorState.contextNodeId);
+  const isImageItem = obj?.type === 'image';
+
+  // Delete context menu item enabled when an object or image is selected
+  if (editorState.contextNodeId && (obj || isImageItem)) {
     deleteContextMenuItem?.removeAttribute('disabled');
   } else {
     deleteContextMenuItem?.setAttribute('disabled', '');
@@ -2339,22 +2857,11 @@ function render() {
 
   // Show message when no particle system is loaded
   if (!editorState.particleSystem) {
-    Debug.marker(
-      'no-system-label',
-      'No particle system loaded',
-      {
-        x: canvas.width / 2,
-        y: canvas.height / 2,
-      },
-      {
-        showMarker: false,
-        showLabel: false,
-        space: 'screen',
-        font: '16px sans-serif',
-        ...styles.noSystemLabel,
-      }
-    );
-    Debug.draw(context);
+    context.fillStyle = '#666';
+    context.font = '16px sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('No particle system loaded', canvas.width / 2, canvas.height / 2);
     return;
   }
 
@@ -2377,28 +2884,37 @@ function render() {
     editorState.particleSystem.draw(context);
   }
 
-  // Draw emitters
-  for (const def of editorState.objects.emitters) {
-    const isSelected = def.id === editorState.selectedObjectId;
-    drawEmitter(def, isSelected ? styles.emitterSelected : styles.emitterUnselected);
-  }
+  // Draw elements (emitters, attractors, force fields, colliders)
+  if (editorState.showElements) {
+    // Draw emitters
+    for (const def of editorState.objects.emitters) {
+      const isSelected = def.id === editorState.selectedObjectId;
+      drawEmitter(def, isSelected ? styles.emitterSelected : styles.emitterUnselected);
+    }
 
-  // Draw attractors
-  for (const def of editorState.objects.attractors) {
-    const isSelected = def.id === editorState.selectedObjectId;
-    drawAttractor(def, isSelected ? styles.attractorSelected : styles.attractorUnselected);
-  }
+    // Draw attractors
+    for (const def of editorState.objects.attractors) {
+      const isSelected = def.id === editorState.selectedObjectId;
+      drawAttractor(def, isSelected ? styles.attractorSelected : styles.attractorUnselected);
+    }
 
-  // Draw force fields
-  for (const def of editorState.objects.forceFields) {
-    const isSelected = def.id === editorState.selectedObjectId;
-    drawForceField(def, isSelected ? styles.forcefieldSelected : styles.forcefieldUnselected);
-  }
+    // Draw force fields
+    for (const def of editorState.objects.forceFields) {
+      const isSelected = def.id === editorState.selectedObjectId;
+      drawForceField(def, isSelected ? styles.forcefieldSelected : styles.forcefieldUnselected);
+    }
 
-  // Draw colliders
-  for (const def of editorState.objects.colliders) {
-    const isSelected = def.id === editorState.selectedObjectId;
-    drawCollider(def, isSelected ? styles.colliderSelected : styles.colliderUnselected);
+    // Draw colliders
+    for (const def of editorState.objects.colliders) {
+      const isSelected = def.id === editorState.selectedObjectId;
+      drawCollider(def, isSelected ? styles.colliderSelected : styles.colliderUnselected);
+    }
+
+    // Draw sinks
+    for (const def of editorState.objects.sinks) {
+      const isSelected = def.id === editorState.selectedObjectId;
+      drawSink(def, isSelected ? styles.sinkSelected : styles.sinkUnselected);
+    }
   }
 
   // Update debug display
@@ -2414,7 +2930,7 @@ function drawEmitter(def, style) {
     def.id,
     {
       x: def.position.x,
-      y: def.position.y - def.size.y / 2 - 5,
+      y: def.position.y - def.size.y / 2 - 20,
     },
     {
       showMarker: false,
@@ -2437,8 +2953,8 @@ function drawAttractor(def, style) {
     `${def.id}-label`,
     def.id,
     {
-      x: def.position.x + def.range + 5,
-      y: def.position.y,
+      x: def.position.x + def.range + 10,
+      y: def.position.y - 10,
     },
     {
       showMarker: false,
@@ -2453,13 +2969,13 @@ function drawAttractor(def, style) {
 function drawForceField(def, style) {
   // Draw arrow representing force
   const start = { x: canvas.width / 2, y: canvas.height / 2 };
-  const scale = 0.1;
+  const scale = 0.2;
   const end = {
     x: start.x + def.force.x * scale,
     y: start.y + def.force.y * scale,
   };
 
-  drawArrow(start, end, { ...style, arrowSize: 10 });
+  drawArrow(start, end, { ...style, arrow: { size: 10 } });
 
   // Draw label
   Debug.marker(
@@ -2520,6 +3036,30 @@ function drawCollider(def, style) {
   );
 }
 
+function drawSink(def, style) {
+  drawCircle(def.position, def.range, style);
+
+  // Draw center point
+  drawCircle(def.position, 5, { fill: true, fillColor: style.strokeColor });
+
+  // Draw label
+  Debug.marker(
+    `${def.id}-label`,
+    def.id,
+    {
+      x: def.position.x + def.range + 10,
+      y: def.position.y - 10,
+    },
+    {
+      showMarker: false,
+      showLabel: false,
+      font: '12px sans-serif',
+      labelOffset: { x: 0, y: 0 },
+      ...CANVAS_STYLES[editorState.settings.theme].objectLabel,
+    }
+  );
+}
+
 // -----------------------------------------------------------------------------
 // Utility functions
 // -----------------------------------------------------------------------------
@@ -2537,6 +3077,9 @@ function findObjectById(id) {
   for (const collider of editorState.objects.colliders) {
     if (collider.id === id) return collider;
   }
+  for (const sink of editorState.objects.sinks) {
+    if (sink.id === id) return sink;
+  }
   return null;
 }
 
@@ -2553,6 +3096,9 @@ function findParticleSystemObject(id) {
   for (const collider of editorState.particleSystem.colliders) {
     if (collider._id === id) return collider;
   }
+  for (const sink of editorState.particleSystem.sinks) {
+    if (sink._id === id) return sink;
+  }
   return null;
 }
 
@@ -2560,6 +3106,7 @@ function getObjectPosition(obj) {
   switch (obj.type) {
     case 'emitter':
     case 'attractor':
+    case 'sink':
       return { ...obj.position };
     case 'forcefield':
       // Force fields don't have a position, return canvas center
@@ -2579,6 +3126,7 @@ function setObjectPosition(obj, pos) {
   switch (obj.type) {
     case 'emitter':
     case 'attractor':
+    case 'sink':
       obj.position = { ...pos };
       break;
     case 'forcefield':
@@ -2609,6 +3157,9 @@ function updateParticleSystemObjectPosition(psObject, def) {
     case 'attractor':
       psObject.position = def.position;
       break;
+    case 'sink':
+      psObject.position = def.position;
+      break;
     case 'forcefield':
       // Force fields don't have positions
       break;
@@ -2634,6 +3185,16 @@ function findObjectAtPosition(x, y) {
 
   // Check attractors
   for (const def of editorState.objects.attractors) {
+    const dx = x - def.position.x;
+    const dy = y - def.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= def.range) {
+      return def.id;
+    }
+  }
+
+  // Check sinks
+  for (const def of editorState.objects.sinks) {
     const dx = x - def.position.x;
     const dy = y - def.position.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -2682,6 +3243,9 @@ function generateId(type) {
     case 'collider':
       existing.push(...editorState.objects.colliders.map(c => c.id));
       break;
+    case 'sink':
+      existing.push(...editorState.objects.sinks.map(s => s.id));
+      break;
   }
 
   let counter = 1;
@@ -2728,8 +3292,14 @@ function openParticleOptionsDialog(emitter) {
   // Get the current particle options
   const particleOptions = emitter.options?.particles || {};
 
-  // Set the JSON editor value
-  particleOptionsJsonEditor.value = JSON.stringify(particleOptions, null, 2);
+  // Clear any existing editor and create new JSONEditor instance
+  particleOptionsJsonEditor.innerHTML = '';
+  particleOptionsEditor = new JSONEditor(particleOptionsJsonEditor, {
+    mode: 'code',
+    modes: ['code', 'tree'],
+    indentation: 2
+  });
+  particleOptionsEditor.set(particleOptions);
 
   // Open the dialog
   particleOptionsDialog.showModal();
@@ -2740,8 +3310,14 @@ function openEmissionOptionsDialog(emitter) {
   // Get the current emission options
   const emissionOptions = emitter.options?.emission || { type: 'rate', rate: 10 };
 
-  // Set the JSON editor value
-  emissionOptionsJsonEditor.value = JSON.stringify(emissionOptions, null, 2);
+  // Clear any existing editor and create new JSONEditor instance
+  emissionOptionsJsonEditor.innerHTML = '';
+  emissionOptionsEditor = new JSONEditor(emissionOptionsJsonEditor, {
+    mode: 'code',
+    modes: ['code', 'tree'],
+    indentation: 2
+  });
+  emissionOptionsEditor.set(emissionOptions);
 
   // Open the dialog
   emissionOptionsDialog.showModal();

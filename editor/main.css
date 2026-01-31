@@ -91,12 +91,10 @@ footer {
   height: 60vh;
 }
 
-textarea#particle-options-json-editor {
+#particle-options-json-editor,
+#emission-options-json-editor {
   width: 100%;
   height: 100%;
-  resize: none;
-  font-family: monospace;
-  font-size: 14px;
 }
 
 /* Toolbar and context menu buttons */
@@ -217,15 +215,15 @@ e2-app[theme="dark"] *::-webkit-scrollbar-thumb:active {
   background-color: #9E9E9E;
 }
 
-/* Particle Options Dialog */
-.particle-options-container {
+/* Options Dialog Shared Styles */
+.options-dialog-container {
   display: flex;
   gap: 20px;
   height: 600px;
   min-width: 900px;
 }
 
-.particle-options-docs {
+.options-dialog-docs {
   flex: 0 0 350px;
   overflow-y: auto;
   padding: 15px;
@@ -233,28 +231,28 @@ e2-app[theme="dark"] *::-webkit-scrollbar-thumb:active {
   border-radius: 4px;
 }
 
-.particle-options-docs h3 {
+.options-dialog-docs h3 {
   margin-top: 0;
   color: var(--text-primary, #e6edf3);
 }
 
-.particle-options-docs h4 {
+.options-dialog-docs h4 {
   margin-top: 15px;
   margin-bottom: 5px;
   color: var(--text-primary, #e6edf3);
 }
 
-.particle-options-docs p,
-.particle-options-docs ul {
+.options-dialog-docs p,
+.options-dialog-docs ul {
   margin: 5px 0;
   color: var(--text-secondary, #cccccc);
 }
 
-.particle-options-docs ul {
+.options-dialog-docs ul {
   padding-left: 20px;
 }
 
-.particle-options-docs code {
+.options-dialog-docs code {
   background: var(--bg-tertiary, #3e3e42);
   padding: 2px 6px;
   border-radius: 3px;
@@ -262,7 +260,7 @@ e2-app[theme="dark"] *::-webkit-scrollbar-thumb:active {
   font-size: 0.9em;
 }
 
-.particle-options-docs pre {
+.options-dialog-docs pre {
   background: var(--bg-tertiary, #3e3e42);
   padding: 10px;
   border-radius: 4px;
@@ -270,25 +268,25 @@ e2-app[theme="dark"] *::-webkit-scrollbar-thumb:active {
   margin: 10px 0;
 }
 
-.particle-options-docs pre code {
+.options-dialog-docs pre code {
   background: none;
   padding: 0;
 }
 
-.particle-options-docs h5 {
+.options-dialog-docs h5 {
   margin-top: 12px;
   margin-bottom: 5px;
   color: var(--text-primary, #e6edf3);
   font-size: 0.95em;
 }
 
-.particle-options-editor {
+.options-dialog-editor {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.particle-options-editor textarea {
+.options-dialog-editor textarea {
   flex: 1;
   border: 1px solid var(--border-color, #3e3e42);
   border-radius: 4px;
@@ -301,35 +299,9 @@ e2-app[theme="dark"] *::-webkit-scrollbar-thumb:active {
   outline: none;
 }
 
-.particle-options-editor textarea:focus {
+.options-dialog-editor textarea:focus {
   border-color: #0e639c;
 }
-
-.particle-options-editor json-editor {
-  flex: 1;
-  border: 1px solid var(--border-color, #3e3e42);
-  border-radius: 4px;
-  background: #1e1e1e;
-  color: #d4d4d4;
-  font-family: 'Courier New', monospace;
-  font-size: 13px;
-  padding: 10px;
-  overflow: auto;
-}
-
-/* Style the JSON editor for dark theme */
-.particle-options-editor json-editor::part(number) { color: #b5cea8; }
-.particle-options-editor json-editor::part(braces) { color: #ffd700; }
-.particle-options-editor json-editor::part(brackets) { color: #da70d6; }
-.particle-options-editor json-editor::part(colon) { color: #d4d4d4; }
-.particle-options-editor json-editor::part(comma) { color: #d4d4d4; }
-.particle-options-editor json-editor::part(string) { color: #ce9178; }
-.particle-options-editor json-editor::part(string_quotes) { color: #ce9178; }
-.particle-options-editor json-editor::part(key) { color: #9cdcfe; }
-.particle-options-editor json-editor::part(key_quotes) { color: #9cdcfe; }
-.particle-options-editor json-editor::part(null) { color: #569cd6; }
-.particle-options-editor json-editor::part(true) { color: #569cd6; }
-.particle-options-editor json-editor::part(false) { color: #569cd6; }
 
 #particle-options-dialog [slot="footer"] {
   display: flex;

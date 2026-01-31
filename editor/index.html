@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Particle System Editor</title>
     <link rel="stylesheet" href="main.css" />
+    <link rel="stylesheet" href="jsoneditor.min.css" />
     <script src="../build/index.js"></script>
     <script src="e2.min.js"></script>
     <script src="canvas-helpers.js"></script>
     <script src="debug.js"></script>
+    <script src="jsoneditor.min.js"></script>
     <script src="editor.js"></script>
   </head>
   <body>
@@ -76,6 +78,12 @@
                 icon="⬜"
                 action="new-collider"
               ></e2-toolbar-button>
+              <e2-toolbar-button
+                id="new-sink-toolbar-button"
+                label="Sink"
+                icon="🕳️"
+                action="new-sink"
+              ></e2-toolbar-button>
               <e2-toolbar-separator></e2-toolbar-separator>
               <e2-toolbar-button
                 id="delete-toolbar-button"
@@ -103,6 +111,13 @@
                 label="Reset"
                 icon="🔄"
                 action="reset"
+              ></e2-toolbar-button>
+              <e2-toolbar-separator></e2-toolbar-separator>
+              <e2-toolbar-button
+                id="toggle-elements-toolbar-button"
+                label="Hide Elements"
+                icon="👁️"
+                action="toggle-elements"
               ></e2-toolbar-button>
               <e2-toolbar-separator></e2-toolbar-separator>
               <e2-toolbar-button
@@ -224,7 +239,20 @@
             icon="⬜"
             action="new-collider-context"
           ></e2-context-menu-item>
-          <e2-context-menu-separator id="context-separator"></e2-context-menu-separator>
+          <e2-context-menu-item
+            id="new-sink-context-menu-item"
+            label="New Sink"
+            icon="🕳️"
+            action="new-sink-context"
+          ></e2-context-menu-item>
+          <e2-context-menu-separator id="context-separator-1"></e2-context-menu-separator>
+          <e2-context-menu-item
+            id="load-image-context-menu-item"
+            label="Load Image"
+            icon="🖼️"
+            action="load-image-context"
+          ></e2-context-menu-item>
+          <e2-context-menu-separator id="context-separator-2"></e2-context-menu-separator>
           <e2-context-menu-item
             id="delete-context-menu-item"
             label="Delete"
@@ -252,6 +280,18 @@
           required="true"
         ></e2-prompt>
 
+        <!-- Image ID prompt -->
+        <e2-prompt
+          id="image-id-prompt"
+          title="Image ID"
+          label="Enter a unique ID for this image:"
+          placeholder="image-id"
+          required="true"
+        ></e2-prompt>
+
+        <!-- Hidden file input for image loading -->
+        <input type="file" id="image-file-input" accept="image/*" style="display: none;" />
+
         <!-- Settings dialog -->
         <e2-dialog id="settings-dialog" title="Settings" closable theme="dark">
           <e2-keyvalue-editor id="settings-editor"></e2-keyvalue-editor>
@@ -262,8 +302,8 @@
 
         <!-- Particle Options dialog -->
         <e2-dialog id="particle-options-dialog" title="Particle Options" closable theme="dark">
-          <div class="particle-options-container">
-            <div class="particle-options-docs">
+          <div class="options-dialog-container">
+            <div class="options-dialog-docs">
               <h3>Particle Configuration</h3>
               <p>Configure how particles are generated and behave.</p>
 
@@ -387,8 +427,8 @@
                 <li><code>defaultDraws</code> - Which default draws to run: <code>"all"</code>, <code>"none"</code>, or array</li>
               </ul>
             </div>
-            <div class="particle-options-editor">
-              <textarea id="particle-options-json-editor"></textarea>
+            <div class="options-dialog-editor">
+              <div id="particle-options-json-editor"></div>
             </div>
           </div>
           <div slot="footer">
@@ -399,8 +439,8 @@
 
         <!-- Emission Options dialog -->
         <e2-dialog id="emission-options-dialog" title="Emission Options" closable theme="dark">
-          <div class="particle-options-container">
-            <div class="particle-options-docs">
+          <div class="options-dialog-container">
+            <div class="options-dialog-docs">
               <h3>Emission Configuration</h3>
               <p>Configure how particles are emitted over time.</p>
 
@@ -460,8 +500,8 @@
   "delay": 2.0
 }</code></pre>
             </div>
-            <div class="particle-options-editor">
-              <textarea id="emission-options-json-editor"></textarea>
+            <div class="options-dialog-editor">
+              <div id="emission-options-json-editor"></div>
             </div>
           </div>
           <div slot="footer">
