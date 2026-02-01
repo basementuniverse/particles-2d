@@ -186,6 +186,11 @@ export type ParticleOptions = {
   useSinks: boolean;
 
   /**
+   * Maximum speed (velocity magnitude) for this particle. Use -1 for no limit.
+   */
+  maxSpeed: number;
+
+  /**
    * What kind of default update logic to apply. This can be 'all', 'none', or
    * an array of specific updates to apply:
    *
@@ -235,6 +240,7 @@ const DEFAULT_PARTICLE_OPTIONS: ParticleOptions = {
   useForceFields: true,
   useColliders: true,
   useSinks: true,
+  maxSpeed: -1,
   defaultUpdates: 'all',
   defaultDraws: 'all',
 };
@@ -471,6 +477,17 @@ export class Particle {
         system.colliders.forEach(collider => {
           collider.handleCollision(this);
         });
+      }
+
+      // Cap velocity to maxSpeed if specified
+      if (this.options.maxSpeed > 0) {
+        const speed = vec2.len(this.velocity);
+        if (speed > this.options.maxSpeed) {
+          this.velocity = vec2.scale(
+            vec2.nor(this.velocity),
+            this.options.maxSpeed
+          );
+        }
       }
     }
 

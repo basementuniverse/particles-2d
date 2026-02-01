@@ -296,6 +296,8 @@ const ATTRACTOR_SCHEMA = {
     force: {
       type: 'number',
       title: 'Force',
+      minimum: -10000,
+      maximum: 10000,
       description: 'Force strength (positive = attract, negative = repel)',
     },
     falloff: {
@@ -922,6 +924,35 @@ function setupEventListeners() {
       const obj = findObjectById(editorState.selectedObjectId);
       if (obj && obj.type === 'emitter') {
         obj.options.particles = particleOptions;
+
+        // Update the particle system object immediately
+        const psObject = findParticleSystemObject(obj.id);
+        if (psObject) {
+          // Clone options to avoid modifying the definition
+          const clonedOptions = JSON.parse(JSON.stringify(obj.options));
+
+          // Convert image IDs to HTMLImageElements
+          if (clonedOptions?.particles?.style?.style === 'image') {
+            const imageId = clonedOptions.particles.style.image;
+            if (typeof imageId === 'string' && editorState.images[imageId]) {
+              clonedOptions.particles.style.image = editorState.images[imageId].element;
+            }
+          }
+
+          // Recreate the emitter with converted options
+          const emitterIndex = editorState.particleSystem.emitters.findIndex(e => e._id === obj.id);
+          if (emitterIndex >= 0) {
+            const newEmitter = new window.Emitter(
+              obj.position,
+              obj.size,
+              obj.lifespan,
+              clonedOptions
+            );
+            newEmitter._id = obj.id;
+            editorState.particleSystem.emitters[emitterIndex] = newEmitter;
+          }
+        }
+
         takeSnapshot('Edit Particle Options');
         updatePropertyEditor(obj);
         editorState.dirty = true;
@@ -948,6 +979,35 @@ function setupEventListeners() {
       const obj = findObjectById(editorState.selectedObjectId);
       if (obj && obj.type === 'emitter') {
         obj.options.emission = emissionOptions;
+
+        // Update the particle system object immediately
+        const psObject = findParticleSystemObject(obj.id);
+        if (psObject) {
+          // Clone options to avoid modifying the definition
+          const clonedOptions = JSON.parse(JSON.stringify(obj.options));
+
+          // Convert image IDs to HTMLImageElements
+          if (clonedOptions?.particles?.style?.style === 'image') {
+            const imageId = clonedOptions.particles.style.image;
+            if (typeof imageId === 'string' && editorState.images[imageId]) {
+              clonedOptions.particles.style.image = editorState.images[imageId].element;
+            }
+          }
+
+          // Recreate the emitter with converted options
+          const emitterIndex = editorState.particleSystem.emitters.findIndex(e => e._id === obj.id);
+          if (emitterIndex >= 0) {
+            const newEmitter = new window.Emitter(
+              obj.position,
+              obj.size,
+              obj.lifespan,
+              clonedOptions
+            );
+            newEmitter._id = obj.id;
+            editorState.particleSystem.emitters[emitterIndex] = newEmitter;
+          }
+        }
+
         takeSnapshot('Edit Emission Options');
         updatePropertyEditor(obj);
         editorState.dirty = true;

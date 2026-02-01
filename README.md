@@ -261,6 +261,7 @@ Particles can optionally have a trail effect.
   useForceFields: boolean; // whether particles from this emitter should be affected by force fields
   useColliders: boolean; // whether particles from this emitter should be affected by colliders
   useSinks: boolean; // whether particles from this emitter should be affected by sinks
+  maxSpeed: number; // maximum speed (velocity magnitude) for particles, use -1 for no limit
 
   defaultUpdates: 'none' | 'all' | ParticleDefaultUpdateTypes;
   update?: (system: ParticleSystem, dt: number) => void;

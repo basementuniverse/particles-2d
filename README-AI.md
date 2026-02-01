@@ -187,6 +187,7 @@ type ParticleOptions = {
   useForceFields: boolean
   useColliders: boolean
   useSinks: boolean
+  maxSpeed: number  // maximum velocity magnitude, -1 = no limit
   defaultUpdates: 'none' | 'all' | Array<'age' | 'physics' | 'direction' | 'position'>
   update?: (system: ParticleSystem, dt: number) => void
   defaultDraws: 'none' | 'all' | Array<'transforms' | 'fade' | 'styles'>
@@ -317,3 +318,4 @@ function loop() {
 - Sink 'instant' mode: immediately sets particle.age = particle.lifespan
 - Sink 'fade' mode: accelerates aging by strength * distanceFactor * rangeFalloff
 - Sink effect stronger at center (controlled by falloff parameter)
+- maxSpeed caps velocity magnitude after physics updates (if > 0)

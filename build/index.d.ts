@@ -41,6 +41,10 @@ export type ParticleOptions = {
      */
     useSinks: boolean;
     /**
+     * Maximum speed (velocity magnitude) for this particle. Use -1 for no limit.
+     */
+    maxSpeed: number;
+    /**
      * What kind of default update logic to apply. This can be 'all', 'none', or
      * an array of specific updates to apply:
      *
