@@ -295,6 +295,11 @@ function loop() {
   system.draw(context);
   requestAnimationFrame(loop);
 }
+
+// Optionally dispose system when done
+if (system.disposed) {
+  // Clean up resources...
+}
 ```
 
 ## Key Behaviors

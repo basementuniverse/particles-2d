@@ -71,6 +71,14 @@ function draw(context) {
 }
 ```
 
+5. The particle system can be removed when all particles and emitters are disposed:
+
+```js
+if (particleSystem.disposed) {
+  // Clean up resources or remove from game loop...
+}
+```
+
 ## Utility types
 
 #### `vec2`

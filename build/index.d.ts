@@ -16,6 +16,7 @@ export declare class ParticleSystem {
     forceFields: ForceField[];
     colliders: Collider[];
     sinks: Sink[];
+    get disposed(): boolean;
     update(dt: number): void;
     draw(context: CanvasRenderingContext2D): void;
 }

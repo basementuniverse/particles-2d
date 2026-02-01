@@ -18,11 +18,11 @@
     "watch": "webpack --watch"
   },
   "dependencies": {
-    "@basementuniverse/canvas-helpers": "^1.2.1",
-    "@basementuniverse/intersection-helpers": "^0.3.0",
+    "@basementuniverse/canvas-helpers": "^1.6.0",
+    "@basementuniverse/intersection-helpers": "^0.5.0",
     "@basementuniverse/parsecolor": "^1.0.2",
-    "@basementuniverse/utils": "^1.7.0",
-    "@basementuniverse/vec": "^2.3.5"
+    "@basementuniverse/utils": "^1.8.1",
+    "@basementuniverse/vec": "^2.5.0"
   },
   "devDependencies": {
     "@types/node": "^18.11.12",

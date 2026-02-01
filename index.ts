@@ -93,6 +93,15 @@ export class ParticleSystem {
   public colliders: Collider[] = [];
   public sinks: Sink[] = [];
 
+  public get disposed(): boolean {
+    return (
+      (this.particles.length === 0 ||
+        this.particles.every(particle => particle.disposed)) &&
+      (this.emitters.length === 0 ||
+        this.emitters.every(emitter => emitter.disposed))
+    );
+  }
+
   public update(dt: number) {
     // Update particles
     this.particles.forEach(particle => {
