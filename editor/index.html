@@ -420,10 +420,17 @@
 
               <h4>Options</h4>
               <ul>
-                <li><code>useAttractors</code> - Enable attractor forces</li>
-                <li><code>useForceFields</code> - Enable force fields</li>
-                <li><code>useColliders</code> - Enable collision detection</li>
-                <li><code>useSinks</code> - Enable sink effects</li>
+                <li><code>useAttractors</code> - Control attractor effects:
+                  <ul>
+                    <li><code>false</code> - Not affected by any attractors</li>
+                    <li><code>true</code> - Affected by all attractors</li>
+                    <li><code>"id"</code> - Affected only by attractor with this id</li>
+                    <li><code>["id1", "id2"]</code> - Affected only by attractors with these ids</li>
+                  </ul>
+                </li>
+                <li><code>useForceFields</code> - Control force field effects (same format as useAttractors)</li>
+                <li><code>useColliders</code> - Control collider interactions (same format as useAttractors)</li>
+                <li><code>useSinks</code> - Control sink effects (same format as useAttractors)</li>
                 <li><code>maxSpeed</code> - Maximum velocity magnitude (use -1 for no limit)</li>
                 <li><code>defaultUpdates</code> - Which default updates to run: <code>"all"</code>, <code>"none"</code>, or array</li>
                 <li><code>defaultDraws</code> - Which default draws to run: <code>"all"</code>, <code>"none"</code>, or array</li>

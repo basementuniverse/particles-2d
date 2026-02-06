@@ -67,7 +67,8 @@ class Attractor {
     range: number,
     force: number,  // negative = repel, positive = attract
     falloff: number,
-    lifespan: number  // -1 for infinite
+    lifespan: number,  // -1 for infinite
+    id?: string  // optional identifier for selective targeting
   )
 
   age: number
@@ -83,7 +84,8 @@ Applies constant force vector to all particles.
 class ForceField {
   constructor(
     force: vec2,
-    lifespan: number  // -1 for infinite
+    lifespan: number,  // -1 for infinite
+    id?: string  // optional identifier for selective targeting
   )
 
   age: number
@@ -101,7 +103,8 @@ class Collider {
     geometry: ColliderGeometry,
     restitution: number,  // 0-1, bounciness
     friction: number,     // 0-1
-    randomness: number    // 0-1, direction offset on collision
+    randomness: number,   // 0-1, direction offset on collision
+    id?: string  // optional identifier for selective targeting
   )
 
   handleCollision(particle: Particle): void
@@ -118,7 +121,8 @@ class Sink {
     strength: number,  // aging acceleration multiplier
     falloff: number,   // distance-based gradient
     mode: 'instant' | 'fade',  // instant disposal or gradual fade
-    lifespan: number  // -1 for infinite
+    lifespan: number,  // -1 for infinite
+    id?: string  // optional identifier for selective targeting
   )
 
   age: number
@@ -183,10 +187,10 @@ type ParticleStyle = (
 ### ParticleOptions
 ```typescript
 type ParticleOptions = {
-  useAttractors: boolean
-  useForceFields: boolean
-  useColliders: boolean
-  useSinks: boolean
+  useAttractors: boolean | string | string[]  // false=none, true=all, string=specific id, array=multiple ids
+  useForceFields: boolean | string | string[]  // false=none, true=all, string=specific id, array=multiple ids
+  useColliders: boolean | string | string[]  // false=none, true=all, string=specific id, array=multiple ids
+  useSinks: boolean | string | string[]  // false=none, true=all, string=specific id, array=multiple ids
   maxSpeed: number  // maximum velocity magnitude, -1 = no limit
   defaultUpdates: 'none' | 'all' | Array<'age' | 'physics' | 'direction' | 'position'>
   update?: (system: ParticleSystem, dt: number) => void

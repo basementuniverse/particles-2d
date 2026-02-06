@@ -81,6 +81,39 @@ function makeTransparent(color: Color | string): Color {
   return { ...parsed, a: 0 };
 }
 
+/**
+ * Check if a particle should be affected by an element based on the use setting
+ * @param useSetting - The particle's use setting (boolean, string, or string[])
+ * @param elementId - The optional id of the element
+ * @returns true if the particle should be affected by this element
+ */
+function shouldUseElement(
+  useSetting: boolean | string | string[],
+  elementId?: string
+): boolean {
+  // false means don't use any
+  if (useSetting === false) {
+    return false;
+  }
+
+  // true means use all
+  if (useSetting === true) {
+    return true;
+  }
+
+  // string or string[] means use specific ids
+  if (typeof useSetting === 'string') {
+    return elementId === useSetting;
+  }
+
+  // Array of strings
+  if (Array.isArray(useSetting)) {
+    return elementId !== undefined && useSetting.includes(elementId);
+  }
+
+  return false;
+}
+
 // -----------------------------------------------------------------------------
 // Particle System
 // -----------------------------------------------------------------------------
@@ -175,24 +208,40 @@ type ParticleDefaultDrawTypes = (typeof PARTICLE_DEFAULT_DRAW_TYPES)[number][];
 
 export type ParticleOptions = {
   /**
-   * Should this particle be affected by attractors
+   * Should this particle be affected by attractors.
+   * - false: not affected by any attractors
+   * - true: affected by all attractors
+   * - string: affected by attractor with this id
+   * - string[]: affected by attractors with these ids
    */
-  useAttractors: boolean;
+  useAttractors: boolean | string | string[];
 
   /**
-   * Should this particle be affected by force fields
+   * Should this particle be affected by force fields.
+   * - false: not affected by any force fields
+   * - true: affected by all force fields
+   * - string: affected by force field with this id
+   * - string[]: affected by force fields with these ids
    */
-  useForceFields: boolean;
+  useForceFields: boolean | string | string[];
 
   /**
-   * Should this particle be affected by colliders
+   * Should this particle be affected by colliders.
+   * - false: not affected by any colliders
+   * - true: affected by all colliders
+   * - string: affected by collider with this id
+   * - string[]: affected by colliders with these ids
    */
-  useColliders: boolean;
+  useColliders: boolean | string | string[];
 
   /**
-   * Should this particle be affected by sinks
+   * Should this particle be affected by sinks.
+   * - false: not affected by any sinks
+   * - true: affected by all sinks
+   * - string: affected by sink with this id
+   * - string[]: affected by sinks with these ids
    */
-  useSinks: boolean;
+  useSinks: boolean | string | string[];
 
   /**
    * Maximum speed (velocity magnitude) for this particle. Use -1 for no limit.
@@ -458,33 +507,44 @@ export class Particle {
     // Optionally handle particle physics, i.e. forces from attractors, force
     // fields, colliders, and sinks
     if (defaultUpdates.includes('physics')) {
-      if (this.options.useAttractors) {
+      if (this.options.useAttractors !== false) {
         system.attractors.forEach(attractor => {
-          if (!attractor.disposed) {
+          if (
+            !attractor.disposed &&
+            shouldUseElement(this.options.useAttractors, attractor.id)
+          ) {
             attractor.applyForce(this, dt);
           }
         });
       }
 
-      if (this.options.useForceFields) {
+      if (this.options.useForceFields !== false) {
         system.forceFields.forEach(forceField => {
-          if (!forceField.disposed) {
+          if (
+            !forceField.disposed &&
+            shouldUseElement(this.options.useForceFields, forceField.id)
+          ) {
             forceField.applyForce(this, dt);
           }
         });
       }
 
-      if (this.options.useSinks) {
+      if (this.options.useSinks !== false) {
         system.sinks.forEach(sink => {
-          if (!sink.disposed) {
+          if (
+            !sink.disposed &&
+            shouldUseElement(this.options.useSinks, sink.id)
+          ) {
             sink.affect(this, dt);
           }
         });
       }
 
-      if (this.options.useColliders) {
+      if (this.options.useColliders !== false) {
         system.colliders.forEach(collider => {
-          collider.handleCollision(this);
+          if (shouldUseElement(this.options.useColliders, collider.id)) {
+            collider.handleCollision(this);
+          }
         });
       }
 
@@ -1099,7 +1159,8 @@ export class Attractor {
     public range: number = 100,
     public force: number = 1,
     public falloff: number = 1,
-    public lifespan: number = -1
+    public lifespan: number = -1,
+    public id?: string
   ) {}
 
   public get disposed(): boolean {
@@ -1161,7 +1222,8 @@ export class ForceField {
 
   public constructor(
     public force: vec2 = vec2(0, 0),
-    public lifespan: number = -1
+    public lifespan: number = -1,
+    public id?: string
   ) {}
 
   public get disposed(): boolean {
@@ -1196,7 +1258,8 @@ export class Sink {
     public strength: number = 1,
     public falloff: number = 1,
     public mode: 'instant' | 'fade' = 'fade',
-    public lifespan: number = -1
+    public lifespan: number = -1,
+    public id?: string
   ) {}
 
   public get disposed(): boolean {
@@ -1273,7 +1336,8 @@ export class Collider {
     public geometry: ColliderGeometry,
     public restitution: number = 0.5,
     public friction: number = 0.5,
-    public randomness: number = 0
+    public randomness: number = 0,
+    public id?: string
   ) {}
 
   public handleCollision(particle: Particle) {

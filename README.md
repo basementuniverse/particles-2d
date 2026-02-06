@@ -265,10 +265,10 @@ Particles can optionally have a trail effect.
 
 ```ts
 {
-  useAttractors: boolean; // whether particles from this emitter should be affected by attractors
-  useForceFields: boolean; // whether particles from this emitter should be affected by force fields
-  useColliders: boolean; // whether particles from this emitter should be affected by colliders
-  useSinks: boolean; // whether particles from this emitter should be affected by sinks
+  useAttractors: boolean | string | string[]; // which attractors should affect these particles
+  useForceFields: boolean | string | string[]; // which force fields should affect these particles
+  useColliders: boolean | string | string[]; // which colliders should affect these particles
+  useSinks: boolean | string | string[]; // which sinks should affect these particles
   maxSpeed: number; // maximum speed (velocity magnitude) for particles, use -1 for no limit
 
   defaultUpdates: 'none' | 'all' | ParticleDefaultUpdateTypes;
@@ -279,6 +279,12 @@ Particles can optionally have a trail effect.
   postDraw?: (system: ParticleSystem, context: CanvasRenderingContext2D) => void;
 }
 ```
+
+For `useAttractors`, `useForceFields`, `useColliders`, and `useSinks`:
+- `false`: particles are not affected by any of these elements
+- `true`: particles are affected by all of these elements
+- `'id'`: particles are affected only by the element with this specific id
+- `['id1', 'id2', ...]`: particles are affected only by elements with these ids
 
 Default update types:
 - `age`: update the age of particles and handle disposal
@@ -332,7 +338,8 @@ new Attractor(
   range: number,
   force: number, // negative for repulsion, positive for attraction
   falloff: number,
-  lifespan: number // use -1 for infinite lifespan
+  lifespan: number, // use -1 for infinite lifespan
+  id?: string // optional unique identifier for selective particle targeting
 );
 ```
 
@@ -343,7 +350,8 @@ Force fields apply a force to all particles.
 ```ts
 new ForceField(
   force: vec2, // { x: number, y: number }
-  lifespan: number // use -1 for infinite lifespan
+  lifespan: number, // use -1 for infinite lifespan
+  id?: string // optional unique identifier for selective particle targeting
 );
 ```
 
@@ -356,7 +364,8 @@ new Collider(
   geometry, // see below...
   restitution: number, // how bouncy the collider is, 0 is no bounce, 1 is full bounce
   friction: number, // how much friction the collider has, 0 is no friction,  1 is full friction
-  randomness: number // how much to randomly offset the direction of particles when they collide, 0 is no randomness, 1 is full randomness (the particle will be offset randomly +/- PI radians)
+  randomness: number, // how much to randomly offset the direction of particles when they collide, 0 is no randomness, 1 is full randomness (the particle will be offset randomly +/- PI radians)
+  id?: string // optional unique identifier for selective particle targeting
 );
 ```
 
@@ -399,7 +408,8 @@ new Sink(
   strength: number, // how fast to accelerate particle aging (multiplier)
   falloff: number, // distance-based effect gradient (higher = stronger at center)
   mode: 'instant' | 'fade', // 'instant' destroys immediately, 'fade' accelerates aging
-  lifespan: number // use -1 for infinite lifespan
+  lifespan: number, // use -1 for infinite lifespan
+  id?: string // optional unique identifier for selective particle targeting
 );
 ```
 
