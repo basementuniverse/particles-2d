@@ -1,0 +1,97 @@
+<style>
+
+body {
+  background-color: #333;
+}
+
+canvas {
+  width: 800px;
+  height: 800px;
+  margin: 2em;
+  border: 3px #555 solid;
+  background-color: #111;
+}
+
+</style>
+<script src="../build/index.js"></script>
+<canvas></canvas>
+<script>
+
+const canvas = document.querySelector('canvas');
+const context = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 800;
+
+// DEMO 5: Wave force function
+
+const particleSystem = new ParticleSystem();
+particleSystem.emitters.push(
+  new Emitter(
+    { x: 400, y: 100 },
+    { x: 600, y: 50 },
+    -1,
+    {
+      particles: {
+        position: 'uniform',
+        speed: {
+          min: 40,
+          max: 80,
+        },
+        direction: {
+          min: Math.PI / 2 - 0.3,
+          max: Math.PI / 2 + 0.3,
+        },
+        size: { x: 8, y: 8 },
+        rotation: null,
+        lifespan: 10,
+        style: {
+          style: 'dot',
+          color: ['#00aaff', '#0088ff', '#0066ff'],
+          fade: {
+            in: 0.2,
+            out: 2,
+          },
+        },
+        options: {
+          maxSpeed: 500,
+        },
+      },
+      emission: {
+        type: 'rate',
+        rate: 20,
+      },
+    }
+  )
+);
+
+particleSystem.forceFields.push(
+  new ForceField(
+    { x: 0, y: 100 },
+    -1,
+    'wave',
+    {
+      amplitude: 30,
+      frequency: 0.3,
+    }
+  )
+);
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update() {
+  const dt = 1 / 60; // Assuming 60 FPS
+  particleSystem.update(dt);
+}
+
+function draw() {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  particleSystem.draw(context);
+}
+
+loop();
+
+</script>

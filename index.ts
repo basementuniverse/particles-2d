@@ -524,7 +524,7 @@ export class Particle {
             !forceField.disposed &&
             shouldUseElement(this.options.useForceFields, forceField.id)
           ) {
-            forceField.applyForce(this, dt);
+            forceField.applyForce(this, system, dt);
           }
         });
       }
@@ -1223,6 +1223,10 @@ export class ForceField {
   public constructor(
     public force: vec2 = vec2(0, 0),
     public lifespan: number = -1,
+    public customForce?:
+      | keyof typeof ForceFieldForces
+      | ((system: ParticleSystem, forceField: ForceField, dt: number) => void),
+    public customForceParams?: Record<string, any>,
     public id?: string
   ) {}
 
@@ -1230,8 +1234,21 @@ export class ForceField {
     return this._disposed;
   }
 
-  public applyForce(particle: Particle, dt: number) {
-    particle.velocity = vec2.add(particle.velocity, vec2.scale(this.force, dt));
+  public applyForce(particle: Particle, system: ParticleSystem, dt: number) {
+    // If a custom force function is provided, use it instead of the default
+    if (this.customForce) {
+      if (typeof this.customForce === 'string') {
+        ForceFieldForces[this.customForce].bind(particle)(system, this, dt);
+      } else if (typeof this.customForce === 'function') {
+        this.customForce.bind(particle)(system, this, dt);
+      }
+    } else {
+      // Default behavior: apply the force vector
+      particle.velocity = vec2.add(
+        particle.velocity,
+        vec2.scale(this.force, dt)
+      );
+    }
   }
 
   public update(dt: number) {
@@ -1420,3 +1437,347 @@ export class Collider {
     particle.velocity = vec2.add(particle.velocity, frictionImpulse);
   }
 }
+
+// -----------------------------------------------------------------------------
+// Built-in force-field custom force functions
+// -----------------------------------------------------------------------------
+
+export const ForceFieldForces: Record<
+  string,
+  (
+    this: Particle,
+    system: ParticleSystem,
+    forceField: ForceField,
+    dt: number
+  ) => void
+> = {
+  /**
+   * Built-in force-field function that creates a wave effect, causing particles
+   * to oscillate back and forth perpendicular to the force-field's force
+   * direction.
+   *
+   * The frequency and amplitude of the wave can be configured via the force
+   * field's customForceParams:
+   *
+   * - frequency: controls how many oscillations occur per second (default: 1)
+   * - amplitude: controls how far particles are pushed from side to side (default: 50)
+   */
+  wave: function (this: Particle, _system, forceField, dt) {
+    const frequency = forceField.customForceParams?.frequency ?? 1;
+    const amplitude = forceField.customForceParams?.amplitude ?? 50;
+
+    // Calculate perpendicular direction to the force field's force vector
+    const forceDirection = vec2.nor(forceField.force);
+    const perpendicularDirection = vec2.rotf(forceDirection, 1);
+
+    // Calculate wave offset based on time and frequency
+    const time = forceField.age;
+    const waveOffset = Math.sin(time * frequency * 2 * Math.PI) * amplitude;
+
+    // Apply the wave force to the particle's velocity
+    this.velocity = vec2.add(
+      this.velocity,
+      vec2.scale(perpendicularDirection, waveOffset * dt)
+    );
+  },
+
+  /**
+   * Built-in force-field function that creates a vortex effect, causing
+   * particles to spiral around a center point.
+   *
+   * The center point, strength and range of the vortex can be configured via
+   * the force field's customForceParams:
+   *
+   * - center: the center point of the vortex (ignore this force if undefined)
+   * - strength: controls how strongly particles are pulled into the vortex
+   * - range: controls how far from the center the vortex effect is applied
+   * - clockwise: if true, particles will spiral clockwise
+   */
+  vortex: function (this: Particle, _system, forceField, dt) {
+    const center = forceField.customForceParams?.center;
+    if (!center || !isVec2(center)) {
+      return; // No center defined, or center is not a vec2
+    }
+
+    const strength = forceField.customForceParams?.strength ?? 1;
+    const range = forceField.customForceParams?.range ?? 100;
+
+    // Calculate distance to the particle
+    const d = distance(center, this.position);
+    if (d > range) {
+      return; // Particle is out of range
+    }
+
+    // Calculate direction vector from particle to force field center
+    const direction = vec2.sub(this.position, center);
+    const normalizedDirection = vec2.nor(direction);
+
+    // Calculate perpendicular direction for vortex effect
+    const perpendicularDirection = forceField.customForceParams?.clockwise
+      ? vec2.rotf(normalizedDirection, 1)
+      : vec2.rotf(normalizedDirection, -1);
+
+    // Use inverse distance falloff for stronger effect closer to the center
+    const distanceFactor = 1 / Math.max(d, 1); // Prevent divide-by-zero
+
+    // Calculate final force vector
+    const finalForceStrength = strength * distanceFactor;
+    const forceVector = vec2.scale(perpendicularDirection, finalForceStrength);
+
+    // Apply the force to the particle's velocity
+    this.velocity = vec2.add(this.velocity, vec2.scale(forceVector, dt));
+  },
+
+  /**
+   * Built-in force-field function that creates an orbital effect, causing
+   * particles to orbit around a center point in a more circular path.
+   *
+   * The center point, strength and range of the orbital effect can be
+   * configured via the force field's customForceParams:
+   *
+   * - center: the center point of the orbital effect (ignore this force if
+   *   undefined)
+   * - strength: controls how strongly particles are pulled into orbit
+   * - range: controls how far from the center the orbital effect is applied
+   */
+  orbital: function (this: Particle, _system, forceField, dt) {
+    const center = forceField.customForceParams?.center;
+    if (!center || !isVec2(center)) {
+      return; // No center defined, or center is not a vec2
+    }
+
+    const strength = forceField.customForceParams?.strength ?? 1;
+    const range = forceField.customForceParams?.range ?? 100;
+
+    // Calculate distance to the particle
+    const d = distance(center, this.position);
+    if (d > range) {
+      return; // Particle is out of range
+    }
+
+    // Calculate direction vector from particle to force field center
+    const direction = vec2.sub(center, this.position);
+    const normalizedDirection = vec2.nor(direction);
+
+    // Use inverse distance falloff for stronger effect closer to the center
+    const distanceFactor = 1 / Math.max(d, 1); // Prevent divide-by-zero
+
+    // Calculate final force vector
+    const finalForceStrength = strength * distanceFactor;
+    const forceVector = vec2.scale(normalizedDirection, finalForceStrength);
+
+    // Apply the force to the particle's velocity
+    this.velocity = vec2.add(this.velocity, vec2.scale(forceVector, dt));
+  },
+
+  /**
+   * Built-in force-field function that creates a vector field effect using
+   * noise to create complex, flowing motion patterns.
+   *
+   * The vector field parameters can be configured via the force field's
+   * customForceParams:
+   *
+   * - noise: a noise function with signature:
+   *   `(x: number, y: number, z: number) => number`
+   *   (returns value in range [-1, 1])
+   * - noiseScale: controls the size of noise features (default: 0.01)
+   *   - smaller values = larger, smoother features
+   *   - larger values = smaller, more chaotic features
+   * - timeScale: controls how quickly the field changes over time (default: 0.1)
+   *   - represents the speed of movement through the z-dimension of noise
+   * - forceAmount: controls how strongly particles are affected (default: 100)
+   */
+  vectorField: function (this: Particle, system, forceField, dt) {
+    const noise = forceField.customForceParams?.noise;
+    if (!noise || typeof noise !== 'function') {
+      return; // No noise function defined
+    }
+
+    const noiseScale = forceField.customForceParams?.noiseScale ?? 0.01;
+    const timeScale = forceField.customForceParams?.timeScale ?? 0.1;
+    const forceAmount = forceField.customForceParams?.forceAmount ?? 100;
+
+    // Sample noise at particle position for x and y components of the force
+    // Use the force field's age to animate the field over time
+    const time = forceField.age * timeScale;
+
+    // Sample noise twice with slight offset to get independent x and y values
+    const noiseX = noise(
+      this.position.x * noiseScale,
+      this.position.y * noiseScale,
+      time
+    );
+    const noiseY = noise(
+      this.position.x * noiseScale + 1000, // Offset to decorrelate x and y
+      this.position.y * noiseScale + 1000,
+      time
+    );
+
+    // Convert noise values (in range [-1, 1]) to force vector
+    const forceVector = vec2(noiseX * forceAmount, noiseY * forceAmount);
+
+    // Apply the force to the particle's velocity
+    this.velocity = vec2.add(this.velocity, vec2.scale(forceVector, dt));
+  },
+
+  /**
+   * Built-in force-field function that creates a turbulence effect using
+   * random forces to create chaotic, jittery motion.
+   *
+   * The turbulence parameters can be configured via the force field's
+   * customForceParams:
+   *
+   * - strength: controls how strongly particles are affected (default: 100)
+   * - frequency: controls how often the random force changes (default: 10)
+   *   - higher values = more rapid changes in direction
+   *   - lower values = slower, more flowing changes
+   */
+  turbulence: function (this: Particle, _system, forceField, dt) {
+    const strength = forceField.customForceParams?.strength ?? 100;
+    const frequency = forceField.customForceParams?.frequency ?? 10;
+
+    // Use time and frequency to create variation
+    const time = forceField.age * frequency;
+
+    // Create pseudo-random but smooth values based on time and particle position
+    // This ensures turbulence is consistent for a given particle at a given time
+    const seed = this.position.x * 12.9898 + this.position.y * 78.233 + time;
+    const randomX = Math.abs(Math.sin(seed) * 43758.5453) % 1;
+    const randomY = Math.abs(Math.sin(seed + 1) * 43758.5453) % 1;
+
+    // Convert to range [-1, 1]
+    const forceX = (randomX * 2 - 1) * strength;
+    const forceY = (randomY * 2 - 1) * strength;
+
+    const forceVector = vec2(forceX, forceY);
+
+    // Apply the force to the particle's velocity
+    this.velocity = vec2.add(this.velocity, vec2.scale(forceVector, dt));
+  },
+
+  /**
+   * Built-in force-field function that creates a drag effect, simulating
+   * air resistance or friction that slows particles over time.
+   *
+   * The drag parameters can be configured via the force field's
+   * customForceParams:
+   *
+   * - coefficient: controls how much drag is applied (default: 0.5)
+   *   - 0 = no drag
+   *   - 1 = maximum drag (particles slow to a stop quickly)
+   *   - higher values = even stronger drag
+   */
+  drag: function (this: Particle, _system, forceField, dt) {
+    const coefficient = forceField.customForceParams?.coefficient ?? 0.5;
+
+    // Apply drag force proportional to velocity (opposite direction)
+    // F_drag = -coefficient * velocity
+    const dragForce = vec2.scale(this.velocity, -coefficient);
+
+    // Apply the force to the particle's velocity
+    this.velocity = vec2.add(this.velocity, vec2.scale(dragForce, dt));
+  },
+
+  /**
+   * Built-in force-field function that implements boids flocking behavior,
+   * causing particles to exhibit emergent group dynamics.
+   *
+   * Implements three classic boids rules:
+   * - Separation: avoid crowding neighbors
+   * - Alignment: steer towards average heading of neighbors
+   * - Cohesion: steer towards average position of neighbors
+   *
+   * The boids parameters can be configured via the force field's
+   * customForceParams:
+   *
+   * - separationDistance: how close is too close (default: 25)
+   * - alignmentDistance: range for alignment behavior (default: 50)
+   * - cohesionDistance: range for cohesion behavior (default: 50)
+   * - separationWeight: strength of separation force (default: 1.5)
+   * - alignmentWeight: strength of alignment force (default: 1.0)
+   * - cohesionWeight: strength of cohesion force (default: 1.0)
+   *
+   * WARNING: This force function checks each particle against all others in
+   * the system, resulting in O(n²) complexity. Only use with relatively small
+   * particle counts (recommended: < 200 particles). For larger systems,
+   * consider implementing custom boids behavior with spatial optimization.
+   */
+  boids: function (this: Particle, system, forceField, dt) {
+    const separationDistance =
+      forceField.customForceParams?.separationDistance ?? 25;
+    const alignmentDistance =
+      forceField.customForceParams?.alignmentDistance ?? 50;
+    const cohesionDistance =
+      forceField.customForceParams?.cohesionDistance ?? 50;
+    const separationWeight =
+      forceField.customForceParams?.separationWeight ?? 1.5;
+    const alignmentWeight =
+      forceField.customForceParams?.alignmentWeight ?? 1.0;
+    const cohesionWeight = forceField.customForceParams?.cohesionWeight ?? 1.0;
+
+    let separationForce = vec2(0, 0);
+    let alignmentForce = vec2(0, 0);
+    let cohesionForce = vec2(0, 0);
+
+    let separationCount = 0;
+    let alignmentCount = 0;
+    let cohesionCount = 0;
+
+    // Check all other particles
+    for (const other of system.particles) {
+      if (other === this || other.disposed) {
+        continue;
+      }
+
+      const d = distance(this.position, other.position);
+
+      // Separation: avoid crowding neighbors
+      if (d < separationDistance && d > 0) {
+        const diff = vec2.sub(this.position, other.position);
+        const normalized = vec2.nor(diff);
+        // Weight by distance (closer = stronger force)
+        const weighted = vec2.scale(normalized, 1 / d);
+        separationForce = vec2.add(separationForce, weighted);
+        separationCount++;
+      }
+
+      // Alignment: steer towards average heading of neighbors
+      if (d < alignmentDistance) {
+        alignmentForce = vec2.add(alignmentForce, other.velocity);
+        alignmentCount++;
+      }
+
+      // Cohesion: steer towards average position of neighbors
+      if (d < cohesionDistance) {
+        cohesionForce = vec2.add(cohesionForce, other.position);
+        cohesionCount++;
+      }
+    }
+
+    // Calculate average forces
+    if (separationCount > 0) {
+      separationForce = vec2.scale(vec2.nor(separationForce), separationWeight);
+    }
+
+    if (alignmentCount > 0) {
+      alignmentForce = vec2.scale(alignmentForce, 1 / alignmentCount);
+      // Steer towards average velocity
+      alignmentForce = vec2.sub(alignmentForce, this.velocity);
+      alignmentForce = vec2.scale(vec2.nor(alignmentForce), alignmentWeight);
+    }
+
+    if (cohesionCount > 0) {
+      cohesionForce = vec2.scale(cohesionForce, 1 / cohesionCount);
+      // Steer towards average position
+      cohesionForce = vec2.sub(cohesionForce, this.position);
+      cohesionForce = vec2.scale(vec2.nor(cohesionForce), cohesionWeight);
+    }
+
+    // Combine all forces
+    let totalForce = vec2.add(separationForce, alignmentForce);
+    totalForce = vec2.add(totalForce, cohesionForce);
+
+    // Apply the force to the particle's velocity
+    this.velocity = vec2.add(this.velocity, vec2.scale(totalForce, dt));
+  },
+};

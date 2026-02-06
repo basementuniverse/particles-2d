@@ -1,0 +1,101 @@
+<style>
+
+body {
+  background-color: #333;
+}
+
+canvas {
+  width: 800px;
+  height: 800px;
+  margin: 2em;
+  border: 3px #555 solid;
+  background-color: #111;
+}
+
+</style>
+<script src="../build/index.js"></script>
+<canvas></canvas>
+<script>
+
+const canvas = document.querySelector('canvas');
+const context = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 800;
+
+// DEMO 10: Drag force function
+
+const particleSystem = new ParticleSystem();
+particleSystem.emitters.push(
+  new Emitter(
+    { x: 400, y: 400 },
+    { x: 100, y: 100 },
+    -1,
+    {
+      particles: {
+        position: 'uniform',
+        speed: {
+          min: 200,
+          max: 400,
+        },
+        direction: {
+          min: -Math.PI,
+          max: Math.PI,
+        },
+        size: { x: 15, y: 15 },
+        rotation: null,
+        lifespan: 10,
+        style: {
+          style: 'dot',
+          color: ['#88ff00', '#aaff00', '#ccff00'],
+          fade: {
+            in: 0.3,
+            out: 2,
+          },
+          trail: {
+            length: 6,
+            widthDecay: 0.85,
+            segmentFade: {
+              in: 0,
+              out: 6,
+            },
+          },
+        },
+      },
+      emission: {
+        type: 'rate',
+        rate: 5,
+      },
+    }
+  )
+);
+
+particleSystem.forceFields.push(
+  new ForceField(
+    { x: 0, y: 0 },
+    -1,
+    'drag',
+    {
+      coefficient: 0.98
+    }
+  )
+);
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update() {
+  const dt = 1 / 60; // Assuming 60 FPS
+  particleSystem.update(dt);
+}
+
+function draw() {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  particleSystem.draw(context);
+}
+
+loop();
+
+</script>

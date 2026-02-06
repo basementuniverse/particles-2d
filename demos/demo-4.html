@@ -1,0 +1,120 @@
+<style>
+
+body {
+  background-color: #333;
+}
+
+canvas {
+  width: 800px;
+  height: 800px;
+  margin: 2em;
+  border: 3px #555 solid;
+  background-color: #111;
+}
+
+</style>
+<script src="../build/index.js"></script>
+<canvas></canvas>
+<script>
+
+const canvas = document.querySelector('canvas');
+const context = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 800;
+
+// DEMO 4: Custom force function - Cardinal direction quantizer
+
+const particleSystem = new ParticleSystem();
+particleSystem.emitters.push(
+  new Emitter(
+    { x: 400, y: 400 },
+    { x: 100, y: 100 },
+    -1,
+    {
+      particles: {
+        position: 'uniform',
+        speed: {
+          min: 150,
+          max: 150,
+        },
+        direction: {
+          min: -Math.PI,
+          max: Math.PI,
+        },
+        size: { x: 20, y: 20 },
+        rotation: null,
+        lifespan: 8,
+        style: {
+          style: 'dot',
+          color: ['#ff00ff', '#00ffff', '#ffff00', '#ff8800'],
+          fade: {
+            in: 0.3,
+            out: 1.5,
+          },
+        },
+      },
+      emission: {
+        type: 'rate',
+        rate: 8,
+      },
+    }
+  )
+);
+
+// Custom force function that quantizes directions to cardinal directions
+// and randomly changes direction 1% of the time
+function cardinalDirectionForce(system, forceField, dt) {
+  const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
+
+  // Randomly change direction 1% of the time
+  if (Math.random() < 0.01) {
+    const directions = [0, Math.PI / 2, Math.PI, -Math.PI / 2]; // E, S, W, N
+    const newDirection = directions[Math.floor(Math.random() * directions.length)];
+    this.velocity.x = Math.cos(newDirection) * speed;
+    this.velocity.y = Math.sin(newDirection) * speed;
+  } else {
+    // Quantize to nearest cardinal direction
+    const currentAngle = Math.atan2(this.velocity.y, this.velocity.x);
+    let targetAngle;
+
+    // Determine closest cardinal direction
+    if (currentAngle >= -Math.PI / 4 && currentAngle < Math.PI / 4) {
+      targetAngle = 0; // East
+    } else if (currentAngle >= Math.PI / 4 && currentAngle < 3 * Math.PI / 4) {
+      targetAngle = Math.PI / 2; // South
+    } else if (currentAngle >= 3 * Math.PI / 4 || currentAngle < -3 * Math.PI / 4) {
+      targetAngle = Math.PI; // West
+    } else {
+      targetAngle = -Math.PI / 2; // North
+    }
+
+    // Smoothly interpolate towards cardinal direction
+    const lerpFactor = 0.1;
+    this.velocity.x = this.velocity.x * (1 - lerpFactor) + Math.cos(targetAngle) * speed * lerpFactor;
+    this.velocity.y = this.velocity.y * (1 - lerpFactor) + Math.sin(targetAngle) * speed * lerpFactor;
+  }
+}
+
+particleSystem.forceFields.push(
+  new ForceField({ x: 0, y: 0 }, -1, cardinalDirectionForce)
+);
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update() {
+  const dt = 1 / 60; // Assuming 60 FPS
+  particleSystem.update(dt);
+}
+
+function draw() {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  particleSystem.draw(context);
+}
+
+loop();
+
+</script>

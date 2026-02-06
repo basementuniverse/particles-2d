@@ -79,21 +79,32 @@ class Attractor {
 ```
 
 ### ForceField
-Applies constant force vector to all particles.
+Applies constant force vector to all particles, or custom/built-in force logic.
 ```typescript
 class ForceField {
   constructor(
     force: vec2,
     lifespan: number,  // -1 for infinite
+    customForce?: string | ((system: ParticleSystem, forceField: ForceField, dt: number) => void),  // built-in name or custom function, bound to particle as 'this'
+    customForceParams?: Record<string, any>,  // parameters for built-in or custom force functions
     id?: string  // optional identifier for selective targeting
   )
 
   age: number
   disposed: boolean
-  applyForce(particle: Particle, dt: number): void
+  applyForce(particle: Particle, dt: number, system: ParticleSystem): void
   update(dt: number): void
 }
 ```
+
+Built-in force functions (use string name):
+- `'wave'` - oscillating perpendicular motion (params: frequency, amplitude)
+- `'vortex'` - spiral particles around center point (params: center, strength, range, clockwise)
+- `'orbital'` - orbit particles around center point (params: center, strength, range)
+- `'vectorField'` - noise-based flowing motion (params: noise function, noiseScale, timeScale, forceAmount)
+- `'turbulence'` - random chaotic motion (params: strength, frequency)
+- `'drag'` - air resistance/friction (params: coefficient)
+- `'boids'` - flocking behavior with separation/alignment/cohesion (params: separationDistance, alignmentDistance, cohesionDistance, separationWeight, alignmentWeight, cohesionWeight) - ⚠️ O(n²) complexity, use with < 200 particles
 
 ### Collider
 Handles particle collisions with various geometries.
@@ -267,10 +278,98 @@ system.attractors.push(new Attractor(
   -1                   // lifespan
 ));
 
-// Add force field
+// Add force field (simple constant force)
 system.forceFields.push(new ForceField(
   { x: 0, y: 300 },   // force vector
-  -1                  // lifespan
+  -1,                 // lifespan
+  undefined,          // customForce (optional)
+  undefined,          // customForceParams (optional)
+  'gravity'           // id (optional)
+));
+
+// Add force field with built-in wave function
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'wave',
+  { frequency: 2, amplitude: 100 }
+));
+
+// Add force field with built-in vortex function
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },    // not used with customForce
+  -1,
+  'vortex',          // built-in function name
+  {
+    center: { x: 400, y: 300 },
+    strength: 500,
+    range: 200,
+    clockwise: false
+  },
+  'my-vortex'
+));
+
+// Add force field with built-in vectorField function
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'vectorField',
+  {
+    noise: noise3D,  // simplex noise function (x, y, z) => number
+    noiseScale: 0.005,
+    timeScale: 0.2,
+    forceAmount: 150
+  }
+));
+
+// Add force field with built-in turbulence
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'turbulence',
+  { strength: 150, frequency: 20 }
+));
+
+// Add force field with built-in drag
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'drag',
+  { coefficient: 0.5 }
+));
+
+// Add force field with built-in boids (small particle count only!)
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'boids',
+  {
+    separationDistance: 30,
+    alignmentDistance: 60,
+    cohesionDistance: 60,
+    separationWeight: 2.0,
+    alignmentWeight: 1.0,
+    cohesionWeight: 0.8
+  }
+));
+
+// Add force field with custom force function
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  function(system, forceField, dt) {
+    // 'this' is bound to the current particle
+    const center = { x: 400, y: 300 };
+    const dx = center.x - this.position.x;
+    const dy = center.y - this.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 0) {
+      this.velocity.x += (-dy / dist) * 500 * dt;
+      this.velocity.y += (dx / dist) * 500 * dt;
+    }
+  },
+  undefined,  // customForceParams
+  'custom-vortex'
 ));
 
 // Add collider
@@ -322,6 +421,9 @@ if (system.disposed) {
 - Particle size.x = width/length, size.y = height/line-width
 - Direction 0 = right, increases counter-clockwise (radians)
 - Force field force applied every frame: velocity += force * dt
+- Force field customForce can be string (built-in: 'vortex', 'orbital', 'vectorField') or custom function
+- Force field customForce function overrides default force behavior, bound to particle as 'this'
+- Built-in 'vectorField' uses noise(x, y, z) to create flowing motion patterns
 - Attractor force decreases with distance^falloff
 - Collider randomness: ±randomness * Math.PI offset on bounce
 - Sink 'instant' mode: immediately sets particle.age = particle.lifespan

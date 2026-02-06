@@ -1,0 +1,113 @@
+<style>
+
+body {
+  background-color: #333;
+}
+
+canvas {
+  width: 800px;
+  height: 800px;
+  margin: 2em;
+  border: 3px #555 solid;
+  background-color: #111;
+}
+
+</style>
+<script src="../build/index.js"></script>
+<canvas></canvas>
+<script>
+
+const canvas = document.querySelector('canvas');
+const context = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 800;
+
+// DEMO 6: Vortex force function
+
+const particleSystem = new ParticleSystem();
+particleSystem.emitters.push(
+  new Emitter(
+    { x: 400, y: 400 },
+    { x: 300, y: 300 },
+    -1,
+    {
+      particles: {
+        position: 'uniform',
+        speed: {
+          min: 30,
+          max: 50,
+        },
+        direction: {
+          min: -Math.PI,
+          max: Math.PI,
+        },
+        size: { x: 6, y: 6 },
+        rotation: null,
+        lifespan: 12,
+        style: {
+          style: 'dot',
+          color: ['#ff0088', '#ff00ff', '#aa00ff'],
+          glow: {
+            color: '#ff00ff',
+            amount: 8,
+          },
+          fade: {
+            in: 0.3,
+            out: 3,
+          },
+        },
+        options: {
+          maxSpeed: 130,
+        },
+      },
+      emission: {
+        type: 'rate',
+        rate: 15,
+      },
+    }
+  )
+);
+
+particleSystem.forceFields.push(
+  new ForceField(
+    { x: 0, y: 0 },
+    -1,
+    'vortex',
+    {
+      center: { x: 400, y: 400 },
+      strength: 100000,
+      range: 300,
+      clockwise: true
+    }
+  )
+);
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update() {
+  const dt = 1 / 60; // Assuming 60 FPS
+  particleSystem.update(dt);
+}
+
+function draw() {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  particleSystem.draw(context);
+
+  // Draw vortex center
+  context.save();
+  context.strokeStyle = '#ff00ff';
+  context.lineWidth = 2;
+  context.setLineDash([5, 5]);
+  context.beginPath();
+  context.arc(400, 400, 10, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
+}
+
+loop();
+
+</script>

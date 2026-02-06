@@ -1,0 +1,116 @@
+<style>
+
+body {
+  background-color: #333;
+}
+
+canvas {
+  width: 800px;
+  height: 800px;
+  margin: 2em;
+  border: 3px #555 solid;
+  background-color: #111;
+}
+
+</style>
+<script src="noise.js"></script>
+<script src="../build/index.js"></script>
+<canvas></canvas>
+<script>
+
+const canvas = document.querySelector('canvas');
+const context = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 800;
+
+// DEMO 11: Boids force function (flocking behavior)
+
+const particleSystem = new ParticleSystem();
+particleSystem.emitters.push(
+  new Emitter(
+    { x: 400, y: 400 },
+    { x: 200, y: 200 },
+    -1,
+    {
+      particles: {
+        position: 'uniform',
+        speed: {
+          min: 80,
+          max: 120,
+        },
+        direction: {
+          min: -Math.PI,
+          max: Math.PI,
+        },
+        size: { x: 8, y: 8 },
+        rotation: null,
+        lifespan: 25,
+        style: {
+          style: 'dot',
+          color: ['#00aaff', '#00ccff', '#00eeff'],
+          fade: {
+            in: 0.5,
+            out: 5,
+          },
+        },
+        options: {
+          maxSpeed: 100,
+        },
+      },
+      emission: {
+        type: 'burst',
+        n: 50,
+      },
+    }
+  )
+);
+
+particleSystem.forceFields.push(
+  new ForceField(
+    { x: 0, y: 0 },
+    -1,
+    'boids',
+    {
+      separationDistance: 30,
+      alignmentDistance: 80,
+      cohesionDistance: 100,
+      separationWeight: 45,
+      alignmentWeight: 60,
+      cohesionWeight: 50
+    }
+  )
+);
+
+particleSystem.forceFields.push(
+  new ForceField(
+    { x: 0, y: 0 },
+    -1,
+    'vectorField',
+    {
+      noise: (x, y, z) => noise.simplex3(x, y, z),
+      noiseScale: 0.01,
+      timeScale: 0.5,
+      forceAmount: 300,
+    }
+  )
+);
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update() {
+  const dt = 1 / 60; // Assuming 60 FPS
+  particleSystem.update(dt);
+}
+
+function draw() {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  particleSystem.draw(context);
+}
+
+loop();
+
+</script>

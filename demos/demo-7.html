@@ -1,0 +1,110 @@
+<style>
+
+body {
+  background-color: #333;
+}
+
+canvas {
+  width: 800px;
+  height: 800px;
+  margin: 2em;
+  border: 3px #555 solid;
+  background-color: #111;
+}
+
+</style>
+<script src="../build/index.js"></script>
+<canvas></canvas>
+<script>
+
+const canvas = document.querySelector('canvas');
+const context = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 800;
+
+// DEMO 7: Orbital force function
+
+const particleSystem = new ParticleSystem();
+particleSystem.emitters.push(
+  new Emitter(
+    { x: 400, y: 400 },
+    { x: 50, y: 50 },
+    -1,
+    {
+      particles: {
+        position: 'normal',
+        speed: 100,
+        direction: {
+          min: -Math.PI,
+          max: Math.PI,
+        },
+        size: { x: 10, y: 10 },
+        rotation: null,
+        lifespan: 15,
+        style: {
+          style: 'dot',
+          color: ['#ffaa00', '#ffcc00', '#ffff00'],
+          glow: {
+            color: '#ffff00',
+            amount: 10,
+          },
+          fade: {
+            in: 0.5,
+            out: 3,
+          },
+        },
+      },
+      emission: {
+        type: 'rate',
+        rate: 5,
+      },
+    }
+  )
+);
+
+particleSystem.forceFields.push(
+  new ForceField(
+    { x: 0, y: 0 },
+    -1,
+    'orbital',
+    {
+      center: { x: 400, y: 400 },
+      strength: 3000,
+      range: 300
+    }
+  )
+);
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update() {
+  const dt = 1 / 60; // Assuming 60 FPS
+  particleSystem.update(dt);
+}
+
+function draw() {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  particleSystem.draw(context);
+
+  // Draw orbital center
+  context.save();
+  context.fillStyle = '#ffff00';
+  context.beginPath();
+  context.arc(400, 400, 15, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = '#ffff00';
+  context.lineWidth = 1;
+  context.setLineDash([3, 3]);
+  context.beginPath();
+  context.arc(400, 400, 150, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
+}
+
+loop();
+
+</script>

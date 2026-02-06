@@ -351,8 +351,236 @@ Force fields apply a force to all particles.
 new ForceField(
   force: vec2, // { x: number, y: number }
   lifespan: number, // use -1 for infinite lifespan
+  customForce?: string | ((system: ParticleSystem, forceField: ForceField, dt: number) => void), // optional built-in name or custom force function
+  customForceParams?: Record<string, any>, // optional parameters for built-in or custom force functions
   id?: string // optional unique identifier for selective particle targeting
 );
+```
+
+### Built-in Force Functions
+
+You can use built-in force functions by passing their name as a string to `customForce`:
+
+#### `wave`
+
+Creates a wave effect, causing particles to oscillate back and forth perpendicular to the force field's force direction.
+
+Parameters:
+- `frequency` (number, default: 1): Controls how many oscillations occur per second
+- `amplitude` (number, default: 50): Controls how far particles are pushed from side to side
+
+Example:
+
+```ts
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },  // not used with built-in function
+  -1,              // lifespan
+  'wave',          // built-in function name
+  {
+    frequency: 2,
+    amplitude: 100
+  }
+));
+```
+
+#### `vortex`
+
+Creates a vortex effect, causing particles to spiral around a center point.
+
+Parameters:
+- `center` (vec2, required): The center point of the vortex
+- `strength` (number, default: 1): Controls how strongly particles are pulled into the vortex
+- `range` (number, default: 100): Controls how far from the center the vortex effect is applied
+- `clockwise` (boolean, default: false): If true, particles spiral clockwise
+
+Example:
+
+```ts
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },  // not used with built-in function
+  -1,              // lifespan
+  'vortex',        // built-in function name
+  {
+    center: { x: 400, y: 300 },
+    strength: 500,
+    range: 200,
+    clockwise: false
+  },
+  'my-vortex'     // optional id
+));
+```
+
+#### `orbital`
+
+Creates an orbital effect, causing particles to orbit around a center point in a circular path.
+
+Parameters:
+- `center` (vec2, required): The center point of the orbital effect
+- `strength` (number, default: 1): Controls how strongly particles are pulled into orbit
+- `range` (number, default: 100): Controls how far from the center the orbital effect is applied
+
+Example:
+
+```ts
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'orbital',
+  {
+    center: { x: 400, y: 300 },
+    strength: 1000,
+    range: 150
+  }
+));
+```
+
+#### `vectorField`
+
+Creates a vector field effect using noise to create complex, flowing motion patterns.
+
+Parameters:
+- `noise` (function, required): A noise function with signature `(x: number, y: number, z: number) => number` that returns values in range [-1, 1]
+- `noiseScale` (number, default: 0.01): Controls the size of noise features
+  - Smaller values = larger, smoother features
+  - Larger values = smaller, more chaotic features
+- `timeScale` (number, default: 0.1): Controls how quickly the field changes over time
+- `forceAmount` (number, default: 100): Controls how strongly particles are affected
+
+Example:
+
+```ts
+// Assuming you have a simplex noise library
+import { createNoise3D } from 'simplex-noise';
+const noise3D = createNoise3D();
+
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'vectorField',
+  {
+    noise: noise3D,
+    noiseScale: 0.005,
+    timeScale: 0.2,
+    forceAmount: 150
+  }
+));
+```
+
+#### `turbulence`
+
+Creates a turbulence effect using random forces to create chaotic, jittery motion.
+
+Parameters:
+- `strength` (number, default: 100): Controls how strongly particles are affected
+- `frequency` (number, default: 10): Controls how often the random force changes
+  - Higher values = more rapid changes in direction
+  - Lower values = slower, more flowing changes
+
+Example:
+
+```ts
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'turbulence',
+  {
+    strength: 150,
+    frequency: 20
+  }
+));
+```
+
+#### `drag`
+
+Creates a drag effect, simulating air resistance or friction that slows particles over time.
+
+Parameters:
+- `coefficient` (number, default: 0.5): Controls how much drag is applied
+  - 0 = no drag
+  - 1 = maximum drag (particles slow to a stop quickly)
+  - Higher values = even stronger drag
+
+Example:
+
+```ts
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'drag',
+  {
+    coefficient: 0.8
+  }
+));
+```
+
+#### `boids`
+
+Implements boids flocking behavior, causing particles to exhibit emergent group dynamics with three classic rules:
+- **Separation**: avoid crowding neighbors
+- **Alignment**: steer towards average heading of neighbors
+- **Cohesion**: steer towards average position of neighbors
+
+Parameters:
+- `separationDistance` (number, default: 25): How close is too close
+- `alignmentDistance` (number, default: 50): Range for alignment behavior
+- `cohesionDistance` (number, default: 50): Range for cohesion behavior
+- `separationWeight` (number, default: 1.5): Strength of separation force
+- `alignmentWeight` (number, default: 1.0): Strength of alignment force
+- `cohesionWeight` (number, default: 1.0): Strength of cohesion force
+
+**⚠️ Performance Warning**: This force function checks each particle against all others in the system, resulting in O(n²) complexity. Only use with relatively small particle counts (recommended: < 200 particles). For larger systems, consider implementing custom boids behavior with spatial optimization.
+
+Example:
+
+```ts
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },
+  -1,
+  'boids',
+  {
+    separationDistance: 30,
+    alignmentDistance: 60,
+    cohesionDistance: 60,
+    separationWeight: 2.0,
+    alignmentWeight: 1.0,
+    cohesionWeight: 0.8
+  }
+));
+```
+
+### Custom Force Function
+
+You can optionally provide a custom function to apply forces to particles. This function is called for each particle affected by the force field:
+
+- The function is bound to the current particle, so `this` refers to the particle
+- Parameters:
+  - `system`: The particle system
+  - `forceField`: The force field instance
+  - `dt`: Delta time in seconds
+
+Example:
+
+```ts
+// Vortex force field that rotates particles around a point
+system.forceFields.push(new ForceField(
+  { x: 0, y: 0 },  // force vector (not used with custom function)
+  -1,              // lifespan
+  function(system, forceField, dt) {
+    // 'this' is the current particle
+    const center = { x: 400, y: 300 };
+    const toCenter = { x: center.x - this.position.x, y: center.y - this.position.y };
+    const distance = Math.sqrt(toCenter.x * toCenter.x + toCenter.y * toCenter.y);
+
+    if (distance > 0) {
+      // Apply tangential force for vortex effect
+      const tangent = { x: -toCenter.y, y: toCenter.x };
+      const strength = 500 / distance;
+      this.velocity.x += tangent.x * strength * dt;
+      this.velocity.y += tangent.y * strength * dt;
+    }
+  },
+  'vortex'  // optional id
+));
 ```
 
 ## Colliders

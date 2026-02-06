@@ -26,21 +26,37 @@ declare const PARTICLE_DEFAULT_DRAW_TYPES: string[];
 type ParticleDefaultDrawTypes = (typeof PARTICLE_DEFAULT_DRAW_TYPES)[number][];
 export type ParticleOptions = {
     /**
-     * Should this particle be affected by attractors
+     * Should this particle be affected by attractors.
+     * - false: not affected by any attractors
+     * - true: affected by all attractors
+     * - string: affected by attractor with this id
+     * - string[]: affected by attractors with these ids
      */
-    useAttractors: boolean;
+    useAttractors: boolean | string | string[];
     /**
-     * Should this particle be affected by force fields
+     * Should this particle be affected by force fields.
+     * - false: not affected by any force fields
+     * - true: affected by all force fields
+     * - string: affected by force field with this id
+     * - string[]: affected by force fields with these ids
      */
-    useForceFields: boolean;
+    useForceFields: boolean | string | string[];
     /**
-     * Should this particle be affected by colliders
+     * Should this particle be affected by colliders.
+     * - false: not affected by any colliders
+     * - true: affected by all colliders
+     * - string: affected by collider with this id
+     * - string[]: affected by colliders with these ids
      */
-    useColliders: boolean;
+    useColliders: boolean | string | string[];
     /**
-     * Should this particle be affected by sinks
+     * Should this particle be affected by sinks.
+     * - false: not affected by any sinks
+     * - true: affected by all sinks
+     * - string: affected by sink with this id
+     * - string[]: affected by sinks with these ids
      */
-    useSinks: boolean;
+    useSinks: boolean | string | string[];
     /**
      * Maximum speed (velocity magnitude) for this particle. Use -1 for no limit.
      */
@@ -338,9 +354,10 @@ export declare class Attractor {
     force: number;
     falloff: number;
     lifespan: number;
+    id?: string | undefined;
     age: number;
     private _disposed;
-    constructor(position: vec2, range?: number, force?: number, falloff?: number, lifespan?: number);
+    constructor(position: vec2, range?: number, force?: number, falloff?: number, lifespan?: number, id?: string | undefined);
     get disposed(): boolean;
     applyForce(particle: Particle, dt: number): void;
     update(dt: number): void;
@@ -348,11 +365,14 @@ export declare class Attractor {
 export declare class ForceField {
     force: vec2;
     lifespan: number;
+    customForce?: string | ((system: ParticleSystem, forceField: ForceField, dt: number) => void) | undefined;
+    customForceParams?: Record<string, any> | undefined;
+    id?: string | undefined;
     age: number;
     private _disposed;
-    constructor(force?: vec2, lifespan?: number);
+    constructor(force?: vec2, lifespan?: number, customForce?: string | ((system: ParticleSystem, forceField: ForceField, dt: number) => void) | undefined, customForceParams?: Record<string, any> | undefined, id?: string | undefined);
     get disposed(): boolean;
-    applyForce(particle: Particle, dt: number): void;
+    applyForce(particle: Particle, system: ParticleSystem, dt: number): void;
     update(dt: number): void;
 }
 export declare class Sink {
@@ -362,9 +382,10 @@ export declare class Sink {
     falloff: number;
     mode: 'instant' | 'fade';
     lifespan: number;
+    id?: string | undefined;
     age: number;
     private _disposed;
-    constructor(position: vec2, range?: number, strength?: number, falloff?: number, mode?: 'instant' | 'fade', lifespan?: number);
+    constructor(position: vec2, range?: number, strength?: number, falloff?: number, mode?: 'instant' | 'fade', lifespan?: number, id?: string | undefined);
     get disposed(): boolean;
     affect(particle: Particle, dt: number): void;
     update(dt: number): void;
@@ -387,7 +408,9 @@ export declare class Collider {
     restitution: number;
     friction: number;
     randomness: number;
-    constructor(geometry: ColliderGeometry, restitution?: number, friction?: number, randomness?: number);
+    id?: string | undefined;
+    constructor(geometry: ColliderGeometry, restitution?: number, friction?: number, randomness?: number, id?: string | undefined);
     handleCollision(particle: Particle): void;
 }
+export declare const ForceFieldForces: Record<string, (this: Particle, system: ParticleSystem, forceField: ForceField, dt: number) => void>;
 export {};
