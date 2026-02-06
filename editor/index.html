@@ -403,11 +403,9 @@
     "length": 10,
     "color": "#ff0000",
     "width": 2,
-    "widthDecay": 1,
-    "segmentFade": {
-      "in": 2,
-      "out": 3
-    }
+    "widthDecay": 0.8,
+    "alphaDecay": 0.8,
+    "decayTime": 0.5
   }
 }</code></pre>
               <ul>
@@ -415,7 +413,8 @@
                 <li><code>color</code> - Optional. Trail color override (otherwise uses particle color)</li>
                 <li><code>width</code> - Optional. Trail width in pixels</li>
                 <li><code>widthDecay</code> - Optional. 0=no decay, 1=full decay, negative=grow</li>
-                <li><code>segmentFade</code> - Optional. Fade in/out for trail segments (number of segments)</li>
+                <li><code>alphaDecay</code> - Optional. 0=no decay, 1=full decay along trail length</li>
+                <li><code>decayTime</code> - Optional. Time in seconds for trail to fade (default: 0.5)</li>
               </ul>
 
               <h4>Options</h4>
@@ -516,6 +515,118 @@
           <div slot="footer">
             <button id="emission-options-ok-button">OK</button>
             <button id="emission-options-cancel-button">Cancel</button>
+          </div>
+        </e2-dialog>
+
+        <!-- Custom Force Parameters dialog -->
+        <e2-dialog id="custom-force-params-dialog" title="Custom Force Parameters" closable theme="dark">
+          <div class="options-dialog-container">
+            <div class="options-dialog-docs">
+              <h3>Custom Force Parameters</h3>
+              <p>Configure parameters for built-in force field functions.</p>
+
+              <h4>Wave</h4>
+              <p>Creates a wave effect, oscillating particles perpendicular to the force direction.</p>
+              <pre><code>{
+  "frequency": 1,
+  "amplitude": 50
+}</code></pre>
+              <ul>
+                <li><code>frequency</code> - Oscillations per second (default: 1)</li>
+                <li><code>amplitude</code> - Distance particles are pushed side to side (default: 50)</li>
+              </ul>
+
+              <h4>Vortex</h4>
+              <p>Creates a vortex effect, causing particles to spiral around a center point.</p>
+              <pre><code>{
+  "center": { "x": 400, "y": 300 },
+  "strength": 1,
+  "range": 100,
+  "clockwise": false
+}</code></pre>
+              <ul>
+                <li><code>center</code> - Required. Center point of the vortex (vec2)</li>
+                <li><code>strength</code> - How strongly particles are pulled (default: 1)</li>
+                <li><code>range</code> - Distance from center where effect applies (default: 100)</li>
+                <li><code>clockwise</code> - Spiral direction (default: false)</li>
+              </ul>
+
+              <h4>Orbital</h4>
+              <p>Creates an orbital effect, causing particles to orbit around a center point.</p>
+              <pre><code>{
+  "center": { "x": 400, "y": 300 },
+  "strength": 1,
+  "range": 100
+}</code></pre>
+              <ul>
+                <li><code>center</code> - Required. Center point of the orbit (vec2)</li>
+                <li><code>strength</code> - How strongly particles are pulled into orbit (default: 1)</li>
+                <li><code>range</code> - Distance from center where effect applies (default: 100)</li>
+              </ul>
+
+              <h4>Vector Field</h4>
+              <p>Creates a vector field using noise for complex, flowing motion patterns.</p>
+              <pre><code>{
+  "noise": null,
+  "noiseScale": 0.01,
+  "timeScale": 0.1,
+  "forceAmount": 100
+}</code></pre>
+              <ul>
+                <li><code>noise</code> - Required. Noise function: <code>(x, y, z) => number</code> (returns [-1, 1])</li>
+                <li><code>noiseScale</code> - Size of noise features (smaller = smoother) (default: 0.01)</li>
+                <li><code>timeScale</code> - Speed of field changes (default: 0.1)</li>
+                <li><code>forceAmount</code> - Strength of particle effect (default: 100)</li>
+              </ul>
+              <p><strong>Note:</strong> The noise function must be provided programmatically (cannot be edited in JSON).</p>
+
+              <h4>Turbulence</h4>
+              <p>Creates turbulence using random forces for chaotic, jittery motion.</p>
+              <pre><code>{
+  "strength": 100,
+  "frequency": 10
+}</code></pre>
+              <ul>
+                <li><code>strength</code> - How strongly particles are affected (default: 100)</li>
+                <li><code>frequency</code> - How often random force changes (default: 10)</li>
+              </ul>
+
+              <h4>Drag</h4>
+              <p>Creates a drag effect, simulating air resistance or friction.</p>
+              <pre><code>{
+  "coefficient": 0.5
+}</code></pre>
+              <ul>
+                <li><code>coefficient</code> - Amount of drag (0 = none, 1 = maximum) (default: 0.5)</li>
+              </ul>
+
+              <h4>Boids</h4>
+              <p>Implements flocking behavior with separation, alignment, and cohesion.</p>
+              <pre><code>{
+  "separationDistance": 25,
+  "alignmentDistance": 50,
+  "cohesionDistance": 50,
+  "separationWeight": 1.5,
+  "alignmentWeight": 1.0,
+  "cohesionWeight": 1.0
+}</code></pre>
+              <ul>
+                <li><code>separationDistance</code> - How close is too close (default: 25)</li>
+                <li><code>alignmentDistance</code> - Range for alignment behavior (default: 50)</li>
+                <li><code>cohesionDistance</code> - Range for cohesion behavior (default: 50)</li>
+                <li><code>separationWeight</code> - Strength of separation force (default: 1.5)</li>
+                <li><code>alignmentWeight</code> - Strength of alignment force (default: 1.0)</li>
+                <li><code>cohesionWeight</code> - Strength of cohesion force (default: 1.0)</li>
+              </ul>
+              <p><strong>Warning:</strong> O(n²) complexity. Only use with &lt;200 particles.</p>
+            </div>
+            <div class="options-dialog-editor">
+              <div id="custom-force-params-json-editor"></div>
+            </div>
+          </div>
+          <div slot="footer">
+            <button id="custom-force-params-ok-button">OK</button>
+            <button id="custom-force-params-cancel-button">Cancel</button>
           </div>
         </e2-dialog>
       </e2-app>

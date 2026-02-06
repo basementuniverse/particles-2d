@@ -351,7 +351,15 @@ type TrailStyle = {
   color?: Color | string | Color[] | string[];
   width?: number;
   widthDecay?: number;
-  segmentFade?: FadeStyle;
+  alphaDecay?: number;
+
+  /**
+   * How quickly trail segments fade out (in seconds). When a particle stops,
+   * the trail will continue to fade based on this value.
+   * Lower values = faster fade.
+   * Default: 0.5 seconds
+   */
+  decayTime?: number;
 };
 
 export type ParticleStyle = (
@@ -396,7 +404,11 @@ export class Particle {
   private actualGlowColor: string = '#fff';
   private options: ParticleOptions;
   private _disposed: boolean = false;
-  private trailPositions: vec2[] = [];
+  private trailSegments: Array<{
+    position: vec2;
+    age: number; // Time since this segment was created
+    speed: number; // Speed at creation (for width calculations)
+  }> = [];
 
   public constructor(
     /**
@@ -474,9 +486,13 @@ export class Particle {
       }
     }
 
-    // Initialize trail positions with current position if trail is enabled
+    // Initialize trail segments with current position if trail is enabled
     if (this.style?.trail) {
-      this.trailPositions.push(vec2(position));
+      this.trailSegments.push({
+        position: vec2(position),
+        age: 0,
+        speed: vec2.len(velocity),
+      });
     }
   }
 
@@ -576,20 +592,38 @@ export class Particle {
       this.position = vec2.add(this.position, vec2.scale(this.velocity, dt));
     }
 
-    // Update trail positions if trail is enabled
-    if (this.style?.trail && defaultUpdates.includes('position')) {
-      // Only add new position if we've moved far enough from the last position
-      const lastPosition = this.trailPositions[this.trailPositions.length - 1];
-      if (
-        !lastPosition ||
-        distance(lastPosition, this.position) >=
-          Particle.MINIMUM_TRAIL_MOVEMENT_THRESHOLD
-      ) {
-        this.trailPositions.push(vec2(this.position));
+    // Update trail segments if trail is enabled
+    if (this.style?.trail) {
+      const decayTime = this.style.trail.decayTime ?? 0.5;
 
-        // Keep only the most recent positions based on trail length
-        while (this.trailPositions.length > this.style.trail.length) {
-          this.trailPositions.shift();
+      // Age all existing segments
+      for (let i = 0; i < this.trailSegments.length; i++) {
+        this.trailSegments[i].age += dt;
+      }
+
+      // Remove segments that are too old
+      this.trailSegments = this.trailSegments.filter(
+        segment => segment.age < decayTime
+      );
+
+      // Add new segment if we've moved enough (only during position updates)
+      if (defaultUpdates.includes('position')) {
+        const lastSegment = this.trailSegments[this.trailSegments.length - 1];
+        if (
+          !lastSegment ||
+          distance(lastSegment.position, this.position) >=
+            Particle.MINIMUM_TRAIL_MOVEMENT_THRESHOLD
+        ) {
+          // Keep only the most recent positions based on trail length
+          if (this.trailSegments.length >= this.style.trail.length) {
+            this.trailSegments.shift();
+          }
+
+          this.trailSegments.push({
+            position: vec2(this.position),
+            age: 0,
+            speed: vec2.len(this.velocity),
+          });
         }
       }
     }
@@ -599,12 +633,12 @@ export class Particle {
     context: CanvasRenderingContext2D,
     particleAlpha: number = 1
   ) {
-    if (!this.style?.trail || this.trailPositions.length < 2) {
+    if (!this.style?.trail || this.trailSegments.length < 2) {
       return;
     }
 
     const trail = this.style.trail;
-    const segments = this.trailPositions.length - 1;
+    const decayTime = trail.decayTime ?? 0.5;
 
     // Determine trail color
     const trailColor = trail.color
@@ -628,36 +662,43 @@ export class Particle {
     context.lineCap = 'round';
     context.lineJoin = 'round';
 
-    // Draw trail segments
+    // Draw trail segments with time-based and position-based fading
     const widthDecay = Math.min(1, trail.widthDecay ?? 1);
-    for (let i = 0; i < segments; i++) {
-      const start = this.trailPositions[i];
-      const end = this.trailPositions[i + 1];
+    const segmentCount = this.trailSegments.length - 1;
 
-      // Calculate width based on decay
-      const progress = 1 - i / (segments - 1);
-      const decayFactor = 1 - progress * widthDecay;
-      const width = baseWidth * decayFactor;
+    for (let i = 0; i < segmentCount; i++) {
+      const start = this.trailSegments[i];
+      const end = this.trailSegments[i + 1];
 
-      // Calculate segment alpha based on fade settings
-      let alpha = 1;
-      if (trail.segmentFade) {
-        const fadeIn = trail.segmentFade.in
-          ? Math.min(1, 1 - i / trail.segmentFade.in)
-          : 1;
-        const fadeOut = trail.segmentFade.out
-          ? Math.min(1, 1 - (segments - i) / trail.segmentFade.out)
-          : 1;
-        alpha = Math.min(fadeIn, fadeOut);
+      // Calculate progress along trail (0 = oldest, 1 = newest)
+      const progress = i / segmentCount;
+
+      // Calculate time-based fade (older segments fade out based on age)
+      const timeFade = Math.max(0, 1 - start.age / decayTime);
+
+      // Calculate position-based alpha fade (consistent with width decay)
+      const alphaDecay = Math.min(1, trail.alphaDecay ?? 1);
+      const alphaDecayFactor = 1 - (1 - progress) * alphaDecay;
+
+      // Combine fades
+      const alpha = timeFade * alphaDecayFactor * particleAlpha;
+
+      // Skip nearly invisible segments for performance
+      if (alpha <= 0.01) {
+        continue;
       }
+
+      // Calculate width based on decay (newest segments should be fullest)
+      const decayFactor = 1 - (1 - progress) * widthDecay;
+      const width = baseWidth * decayFactor;
 
       // Draw segment
       context.beginPath();
       context.strokeStyle = trailColor;
       context.lineWidth = width;
-      context.globalAlpha = alpha * particleAlpha;
-      context.moveTo(start.x, start.y);
-      context.lineTo(end.x, end.y);
+      context.globalAlpha = alpha;
+      context.moveTo(start.position.x, start.position.y);
+      context.lineTo(end.position.x, end.position.y);
       context.stroke();
     }
 

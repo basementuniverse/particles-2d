@@ -52,12 +52,10 @@ particleSystem.emitters.push(
             out: 2.5,
           },
           trail: {
-            length: 10,
-            widthDecay: 1,
-            segmentFade: {
-              in: 0,
-              out: 10,
-            },
+            length: 30,
+            decayTime: 3.0,
+            widthDecay: 0.8,
+            alphaDecay: 0.8,
           },
         },
       },

@@ -112,7 +112,14 @@ type TrailStyle = {
     color?: Color | string | Color[] | string[];
     width?: number;
     widthDecay?: number;
-    segmentFade?: FadeStyle;
+    alphaDecay?: number;
+    /**
+     * How quickly trail segments fade out (in seconds). When a particle stops,
+     * the trail will continue to fade based on this value.
+     * Lower values = faster fade.
+     * Default: 0.5 seconds
+     */
+    decayTime?: number;
 };
 export type ParticleStyle = ({
     style: 'dot';
@@ -173,7 +180,7 @@ export declare class Particle {
     private actualGlowColor;
     private options;
     private _disposed;
-    private trailPositions;
+    private trailSegments;
     constructor(
     /**
      * Initial position of the particle

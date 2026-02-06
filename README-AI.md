@@ -190,7 +190,8 @@ type ParticleStyle = (
     color?: Color | string | Array<Color | string>
     width?: number
     widthDecay?: number  // 0=no decay, 1=full decay, negative=grow
-    segmentFade?: { in: number, out: number }  // number of segments
+    alphaDecay?: number  // 0=no decay, 1=full decay
+    decayTime?: number  // seconds, time-based fade duration (default: 0.5)
   }
 }
 ```

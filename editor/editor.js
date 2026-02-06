@@ -333,6 +333,17 @@ const FORCEFIELD_SCHEMA = {
       title: 'Lifespan',
       description: 'Lifespan in seconds (-1 for infinite)',
     },
+    customForce: {
+      type: 'string',
+      title: 'Custom Force',
+      enum: ['none', 'wave', 'vortex', 'orbital', 'vectorField', 'turbulence', 'drag', 'boids'],
+      description: 'Built-in force field function to apply',
+    },
+    editCustomForceParams: {
+      type: 'function',
+      title: 'Custom Force Parameters',
+      description: 'Open JSON editor for custom force parameters',
+    },
   },
   required: ['id', 'force', 'lifespan'],
 };
@@ -496,6 +507,8 @@ const DEFAULT_FORCEFIELD = {
   type: 'forcefield',
   force: { x: 0, y: 300 },
   lifespan: -1,
+  customForce: 'none',
+  customForceParams: {},
 };
 
 const DEFAULT_COLLIDER = {
@@ -530,7 +543,7 @@ let drawGrid, drawCircle, drawRectangle, drawLine, drawArrow;
 // DOM elements
 let app, tree, content, properties, history;
 let canvas, context;
-let particleOptionsEditor, emissionOptionsEditor;
+let particleOptionsEditor, emissionOptionsEditor, customForceParamsEditor;
 let sceneTree, propertiesTitle, propertyEditor, historyView, settingsEditor;
 let newToolbarButton, openToolbarButton, saveToolbarButton;
 let undoToolbarButton, redoToolbarButton;
@@ -542,6 +555,7 @@ let statusBar, mouseStatusBarItem, selectedStatusBarItem, particlesStatusBarItem
 let settingsDialog, closeSettingsDialogButton;
 let particleOptionsDialog, particleOptionsJsonEditor, particleOptionsOkButton, particleOptionsCancelButton;
 let emissionOptionsDialog, emissionOptionsJsonEditor, emissionOptionsOkButton, emissionOptionsCancelButton;
+let customForceParamsDialog, customForceParamsJsonEditor, customForceParamsOkButton, customForceParamsCancelButton;
 let newEmitterContextMenuItem, newAttractorContextMenuItem, newForceFieldContextMenuItem, newColliderContextMenuItem, newSinkContextMenuItem;
 let deleteContextMenuItem, loadImageContextMenuItem;
 let namePrompt, imageIdPrompt;
@@ -641,6 +655,10 @@ function initialiseEditor() {
   emissionOptionsJsonEditor = document.getElementById('emission-options-json-editor');
   emissionOptionsOkButton = document.getElementById('emission-options-ok-button');
   emissionOptionsCancelButton = document.getElementById('emission-options-cancel-button');
+  customForceParamsDialog = document.getElementById('custom-force-params-dialog');
+  customForceParamsJsonEditor = document.getElementById('custom-force-params-json-editor');
+  customForceParamsOkButton = document.getElementById('custom-force-params-ok-button');
+  customForceParamsCancelButton = document.getElementById('custom-force-params-cancel-button');
   newEmitterContextMenuItem = document.getElementById('new-emitter-context-menu-item');
   newAttractorContextMenuItem = document.getElementById('new-attractor-context-menu-item');
   newForceFieldContextMenuItem = document.getElementById('new-forcefield-context-menu-item');
@@ -678,6 +696,8 @@ function initialiseEditor() {
   app.setAttribute('theme', editorState.settings.theme);
   settingsDialog.setAttribute('theme', editorState.settings.theme);
   particleOptionsDialog.setAttribute('theme', editorState.settings.theme);
+  emissionOptionsDialog.setAttribute('theme', editorState.settings.theme);
+  customForceParamsDialog.setAttribute('theme', editorState.settings.theme);
 
   console.log('Particle System Editor initialised successfully');
 }
@@ -719,6 +739,8 @@ function setupEventListeners() {
     app.setAttribute('theme', editorState.settings.theme);
     settingsDialog.setAttribute('theme', editorState.settings.theme);
     particleOptionsDialog.setAttribute('theme', editorState.settings.theme);
+    emissionOptionsDialog.setAttribute('theme', editorState.settings.theme);
+    customForceParamsDialog.setAttribute('theme', editorState.settings.theme);
   });
 
   // Mouse movement tracking
@@ -1023,6 +1045,39 @@ function setupEventListeners() {
 
   emissionOptionsCancelButton?.addEventListener('click', () => {
     emissionOptionsDialog?.close();
+  });
+
+  // Custom force params dialog handlers
+  customForceParamsOkButton?.addEventListener('click', () => {
+    try {
+      const customForceParams = customForceParamsEditor.get();
+
+      // Update the forcefield's customForceParams
+      const obj = findObjectById(editorState.selectedObjectId);
+      if (obj && obj.type === 'forcefield') {
+        obj.customForceParams = customForceParams;
+
+        // Update the particle system object immediately
+        const psObject = findParticleSystemObject(obj.id);
+        if (psObject) {
+          psObject.customForceParams = customForceParams;
+        }
+
+        takeSnapshot('Edit Custom Force Parameters');
+        updatePropertyEditor(obj);
+        editorState.dirty = true;
+        updateTitle();
+      }
+
+      customForceParamsDialog?.close();
+    } catch (err) {
+      console.error('Invalid JSON:', err);
+      alert('Invalid JSON: ' + err.message);
+    }
+  });
+
+  customForceParamsCancelButton?.addEventListener('click', () => {
+    customForceParamsDialog?.close();
   });
 
   // Image file input handler
@@ -1940,19 +1995,24 @@ function recreateParticleSystem() {
       def.range,
       def.force,
       def.falloff,
-      def.lifespan
+      def.lifespan,
+      def.id
     );
-    attractor._id = def.id;
     editorState.particleSystem.attractors.push(attractor);
   }
 
   // Recreate force fields
   for (const def of editorState.objects.forceFields) {
+    // Convert customForce 'none' to undefined for the constructor
+    const customForce = def.customForce === 'none' ? undefined : def.customForce;
+
     const forceField = new window.ForceField(
       def.force,
-      def.lifespan
+      def.lifespan,
+      customForce,
+      def.customForceParams,
+      def.id
     );
-    forceField._id = def.id;
     editorState.particleSystem.forceFields.push(forceField);
   }
 
@@ -1962,9 +2022,9 @@ function recreateParticleSystem() {
       def.geometry,
       def.restitution,
       def.friction,
-      def.randomness
+      def.randomness,
+      def.id
     );
-    collider._id = def.id;
     editorState.particleSystem.colliders.push(collider);
   }
 
@@ -1976,9 +2036,9 @@ function recreateParticleSystem() {
       def.strength,
       def.falloff,
       def.mode,
-      def.lifespan
+      def.lifespan,
+      def.id
     );
-    sink._id = def.id;
     editorState.particleSystem.sinks.push(sink);
   }
 }
@@ -2034,9 +2094,9 @@ function createAttractor(position) {
     def.range,
     def.force,
     def.falloff,
-    def.lifespan
+    def.lifespan,
+    def.id
   );
-  attractor._id = def.id;
 
   editorState.particleSystem.attractors.push(attractor);
   editorState.objects.attractors.push(def);
@@ -2056,11 +2116,16 @@ function createForceField() {
     id: generateId('forcefield'),
   };
 
+  // Convert customForce 'none' to undefined for the constructor
+  const customForce = def.customForce === 'none' ? undefined : def.customForce;
+
   const forceField = new window.ForceField(
     def.force,
-    def.lifespan
+    def.lifespan,
+    customForce,
+    def.customForceParams,
+    def.id
   );
-  forceField._id = def.id;
 
   editorState.particleSystem.forceFields.push(forceField);
   editorState.objects.forceFields.push(def);
@@ -2089,9 +2154,9 @@ function createCollider(position) {
     def.geometry,
     def.restitution,
     def.friction,
-    def.randomness
+    def.randomness,
+    def.id
   );
-  collider._id = def.id;
 
   editorState.particleSystem.colliders.push(collider);
   editorState.objects.colliders.push(def);
@@ -2122,9 +2187,9 @@ function createSink(position) {
     def.strength,
     def.falloff,
     def.mode,
-    def.lifespan
+    def.lifespan,
+    def.id
   );
-  sink._id = def.id;
 
   editorState.particleSystem.sinks.push(sink);
   editorState.objects.sinks.push(def);
@@ -2154,7 +2219,7 @@ function deleteObject(id) {
       break;
     case 'attractor':
       editorState.particleSystem.attractors = editorState.particleSystem.attractors.filter(
-        a => a._id !== id
+        a => a.id !== id
       );
       editorState.objects.attractors = editorState.objects.attractors.filter(
         a => a.id !== id
@@ -2162,7 +2227,7 @@ function deleteObject(id) {
       break;
     case 'forcefield':
       editorState.particleSystem.forceFields = editorState.particleSystem.forceFields.filter(
-        f => f._id !== id
+        f => f.id !== id
       );
       editorState.objects.forceFields = editorState.objects.forceFields.filter(
         f => f.id !== id
@@ -2170,7 +2235,7 @@ function deleteObject(id) {
       break;
     case 'collider':
       editorState.particleSystem.colliders = editorState.particleSystem.colliders.filter(
-        c => c._id !== id
+        c => c.id !== id
       );
       editorState.objects.colliders = editorState.objects.colliders.filter(
         c => c.id !== id
@@ -2178,7 +2243,7 @@ function deleteObject(id) {
       break;
     case 'sink':
       editorState.particleSystem.sinks = editorState.particleSystem.sinks.filter(
-        s => s._id !== id
+        s => s.id !== id
       );
       editorState.objects.sinks = editorState.objects.sinks.filter(
         s => s.id !== id
@@ -2357,6 +2422,9 @@ function updateParticleSystemObject(psObject, def) {
     case 'forcefield':
       psObject.force = def.force;
       psObject.lifespan = def.lifespan;
+      // Convert customForce 'none' to undefined
+      psObject.customForce = def.customForce === 'none' ? undefined : def.customForce;
+      psObject.customForceParams = def.customForceParams;
       break;
     case 'collider':
       psObject.geometry = def.geometry;
@@ -2712,6 +2780,13 @@ function updatePropertyEditor() {
         };
         flattenedValue.editEmissionOptions = function() {
           openEmissionOptionsDialog(obj);
+        };
+      }
+
+      // Add button function for forcefields to open custom force params editor
+      if (obj.type === 'forcefield') {
+        flattenedValue.editCustomForceParams = function() {
+          openCustomForceParamsDialog(obj);
         };
       }
 
@@ -3148,16 +3223,16 @@ function findParticleSystemObject(id) {
     if (emitter._id === id) return emitter;
   }
   for (const attractor of editorState.particleSystem.attractors) {
-    if (attractor._id === id) return attractor;
+    if (attractor.id === id) return attractor;
   }
   for (const forceField of editorState.particleSystem.forceFields) {
-    if (forceField._id === id) return forceField;
+    if (forceField.id === id) return forceField;
   }
   for (const collider of editorState.particleSystem.colliders) {
-    if (collider._id === id) return collider;
+    if (collider.id === id) return collider;
   }
   for (const sink of editorState.particleSystem.sinks) {
-    if (sink._id === id) return sink;
+    if (sink.id === id) return sink;
   }
   return null;
 }
@@ -3381,4 +3456,23 @@ function openEmissionOptionsDialog(emitter) {
 
   // Open the dialog
   emissionOptionsDialog.showModal();
+}
+
+function openCustomForceParamsDialog(forcefield) {
+  if (!forcefield || !customForceParamsDialog || !customForceParamsJsonEditor) return;
+
+  // Get the current custom force parameters
+  const customForceParams = forcefield.customForceParams || {};
+
+  // Clear any existing editor and create new JSONEditor instance
+  customForceParamsJsonEditor.innerHTML = '';
+  customForceParamsEditor = new JSONEditor(customForceParamsJsonEditor, {
+    mode: 'code',
+    modes: ['code', 'tree'],
+    indentation: 2
+  });
+  customForceParamsEditor.set(customForceParams);
+
+  // Open the dialog
+  customForceParamsDialog.showModal();
 }

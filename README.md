@@ -253,10 +253,8 @@ Particles can optionally have a trail effect.
     color?: Color | string | Color[] | string[]; // fixed or random color for the trail, if not provided we use the particle's color
     width?: number; // width of the trail segments, if not provided we use the particle's size
     widthDecay?: number; // how much to decay the width of the trail segments, 0 means no decay, 1 means full decay (the trail will disappear over its length), negative numbers cause the trail to grow wider over its length
-    segmentFade?: {
-      in: number; // how many segments to fade in at the start of the trail
-      out: number; // how many segments to fade out at the end of the trail
-    };
+    alphaDecay?: number; // how much to decay the alpha of the trail segments, 0 means no decay, 1 means full decay (the trail will fade out over its length)
+    decayTime?: number; // how quickly trail segments fade out (in seconds), when a particle stops the trail will continue to fade based on this value (default: 0.5)
   }
 }
 ```
