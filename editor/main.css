@@ -281,7 +281,8 @@ e2-app[theme="dark"] *::-webkit-scrollbar-thumb:active {
 }
 
 .options-dialog-editor {
-  flex: 1;
+  flex: 1 0 350px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }

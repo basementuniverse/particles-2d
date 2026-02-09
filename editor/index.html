@@ -6,11 +6,22 @@
     <title>Particle System Editor</title>
     <link rel="stylesheet" href="main.css" />
     <link rel="stylesheet" href="jsoneditor.min.css" />
+    <style>
+      /* Fade function signatures in examples */
+      .fn-sig {
+        opacity: 0.4;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+      }
+    </style>
     <script src="../build/index.js"></script>
     <script src="e2.min.js"></script>
     <script src="canvas-helpers.js"></script>
     <script src="debug.js"></script>
     <script src="jsoneditor.min.js"></script>
+    <script src="noise.js"></script>
     <script src="editor.js"></script>
   </head>
   <body>
@@ -518,6 +529,170 @@
           </div>
         </e2-dialog>
 
+        <!-- Particle Functions dialog -->
+        <e2-dialog id="particle-functions-dialog" title="Particle Generation Functions" closable theme="dark">
+          <div class="options-dialog-container">
+            <div class="options-dialog-docs">
+              <h3>Particle Generation Functions</h3>
+              <p>Define custom functions for particle generation.</p>
+
+              <h4>Parameters</h4>
+              <p><strong>n</strong> - Index within the current emission batch (0-based)</p>
+              <ul>
+                <li>Resets to 0 for each emission batch</li>
+                <li>To emit with varying n values, increase emission rate or use burst mode</li>
+                <li>For a global counter, use <code>emitter.totalParticlesEmitted</code></li>
+              </ul>
+
+              <h4>Context (this)</h4>
+              <p>Inside custom functions, <code>this</code> is bound to the Emitter instance with these properties:</p>
+              <ul>
+                <li><code>this.position</code> - Emitter position {x, y}</li>
+                <li><code>this.size</code> - Emitter size {x, y}</li>
+                <li><code>this.age</code> - Time since emitter creation (seconds)</li>
+                <li><code>this.totalParticlesEmitted</code> - Global particle counter</li>
+              </ul>
+
+              <h4>Position Function</h4>
+              <p>Determines where particles spawn within the emitter area.</p>
+              <pre><code><span class="fn-sig">function(n) {</span>
+  return { x: 0, y: 0 };
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Returns:</strong> <code>{x: number, y: number}</code> - position vector (absolute coordinates)</p>
+
+              <h4>Speed Function</h4>
+              <p>Sets initial particle velocity magnitude.</p>
+              <pre><code><span class="fn-sig">function(n) {</span>
+  return 100;
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Returns:</strong> <code>number</code> - speed in pixels/second</p>
+
+              <h4>Direction Function</h4>
+              <p>Sets initial particle velocity direction.</p>
+              <pre><code><span class="fn-sig">function(n) {</span>
+  return 0;
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Returns:</strong> <code>number</code> - angle in radians (0 = right, π/2 = down)</p>
+
+              <h4>Size Function</h4>
+              <p>Sets particle dimensions.</p>
+              <pre><code><span class="fn-sig">function(n) {</span>
+  return { x: 10, y: 10 };
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Returns:</strong> <code>{x: number, y: number}</code> - size vector</p>
+
+              <h4>Rotation Function</h4>
+              <p>Sets initial particle rotation.</p>
+              <pre><code><span class="fn-sig">function(n) {</span>
+  return 0;
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Returns:</strong> <code>number</code> - rotation in radians</p>
+              <p><strong>Note:</strong> Return <code>null</code> for auto-rotation based on velocity.</p>
+
+              <h4>Lifespan Function</h4>
+              <p>Sets how long particles live.</p>
+              <pre><code><span class="fn-sig">function(n) {</span>
+  return 3;
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Returns:</strong> <code>number</code> - lifespan in seconds</p>
+
+              <h4>Examples</h4>
+              <pre><code>// Spiral using global counter (direction)
+<span class="fn-sig">function(n) {</span>
+  const total = this.totalParticlesEmitted;
+  const angle = (total / 10) * Math.PI * 2;
+  return angle;
+<span class="fn-sig">}</span>
+
+// Emit in a circle (direction)
+<span class="fn-sig">function(n) {</span>
+  // n is 0-9 if emitting 10 at once
+  return (n / 10) * Math.PI * 2;
+<span class="fn-sig">}</span>
+
+// Random within emitter (position)
+<span class="fn-sig">function(n) {</span>
+  return {
+    x: this.position.x + (Math.random() - 0.5) * this.size.x,
+    y: this.position.y + (Math.random() - 0.5) * this.size.y
+  };
+<span class="fn-sig">}</span>
+
+// Grid pattern (position)
+<span class="fn-sig">function(n) {</span>
+  const cols = 5;
+  const row = Math.floor(n / cols);
+  const col = n % cols;
+  return {
+    x: this.position.x + col * 20,
+    y: this.position.y + row * 20
+  };
+<span class="fn-sig">}</span>
+
+// Pulsing size
+<span class="fn-sig">function(n) {</span>
+  const pulse = Math.sin(this.age * 2) * 5 + 10;
+  return { x: pulse, y: pulse };
+<span class="fn-sig">}</span></code></pre>
+            </div>
+            <div class="options-dialog-editor" style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; flex-direction: column;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                  <input type="checkbox" id="particle-fn-position-enabled" />
+                  Position
+                </label>
+                <textarea id="particle-fn-position" rows="4" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                  <input type="checkbox" id="particle-fn-speed-enabled" />
+                  Speed
+                </label>
+                <textarea id="particle-fn-speed" rows="4" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                  <input type="checkbox" id="particle-fn-direction-enabled" />
+                  Direction
+                </label>
+                <textarea id="particle-fn-direction" rows="4" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                  <input type="checkbox" id="particle-fn-size-enabled" />
+                  Size
+                </label>
+                <textarea id="particle-fn-size" rows="4" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                  <input type="checkbox" id="particle-fn-rotation-enabled" />
+                  Rotation
+                </label>
+                <textarea id="particle-fn-rotation" rows="4" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                  <input type="checkbox" id="particle-fn-lifespan-enabled" />
+                  Lifespan
+                </label>
+                <textarea id="particle-fn-lifespan" rows="4" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+              </div>
+            </div>
+          </div>
+          <div slot="footer">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <e2-status-bar id="particle-functions-status-bar" theme="dark" style="min-width: 300px">
+                <e2-status-section slot="left" position="left">
+                  <e2-status-item id="particle-functions-status-item" type="message" value=""></e2-status-item>
+                </e2-status-section>
+              </e2-status-bar>
+              <button id="particle-functions-ok-button">OK</button>
+              <button id="particle-functions-cancel-button">Cancel</button>
+            </div>
+          </div>
+        </e2-dialog>
+
         <!-- Custom Force Parameters dialog -->
         <e2-dialog id="custom-force-params-dialog" title="Custom Force Parameters" closable theme="dark">
           <div class="options-dialog-container">
@@ -627,6 +802,257 @@
           <div slot="footer">
             <button id="custom-force-params-ok-button">OK</button>
             <button id="custom-force-params-cancel-button">Cancel</button>
+          </div>
+        </e2-dialog>
+
+        <!-- Emission Control dialog -->
+        <e2-dialog id="emission-control-dialog" title="Emission Control Function" closable theme="dark">
+          <div class="options-dialog-container">
+            <div class="options-dialog-docs">
+              <h3>Custom Emission Control</h3>
+              <p>Define a custom function to control particle emission.</p>
+              
+              <h4>Function Signature</h4>
+              <pre><code><span class="fn-sig">function() {</span>
+  return 1;
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Returns:</strong> <code>number</code> - number of particles to emit this frame</p>
+              
+              <h4>Context (this)</h4>
+              <p>Inside the function, <code>this</code> is bound to the Emitter instance:</p>
+              <ul>
+                <li><code>this.position</code> - Emitter position {x, y}</li>
+                <li><code>this.size</code> - Emitter size {x, y}</li>
+                <li><code>this.age</code> - Time since emitter creation (seconds)</li>
+                <li><code>this.totalParticlesEmitted</code> - Total particles emitted so far</li>
+              </ul>
+
+              <h4>Examples</h4>
+              <pre><code>// Emit based on age
+<span class="fn-sig">function() {</span>
+  return Math.floor(this.age * 2);
+<span class="fn-sig">}</span>
+
+// Pulsing emission
+<span class="fn-sig">function() {</span>
+  const pulse = Math.sin(this.age * 3) * 5 + 5;
+  return Math.floor(pulse);
+<span class="fn-sig">}</span>
+
+// Stop after 100 particles
+<span class="fn-sig">function() {</span>
+  return this.totalParticlesEmitted < 100 ? 1 : 0;
+<span class="fn-sig">}</span>
+
+// Random bursts
+<span class="fn-sig">function() {</span>
+  return Math.random() < 0.1 ? 10 : 0;
+<span class="fn-sig">}</span></code></pre>
+            </div>
+            <div class="options-dialog-editor" style="display: flex; flex-direction: column;">
+              <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                <input type="checkbox" id="emission-control-enabled" />
+                Enable Custom Emission Control
+              </label>
+              <textarea id="emission-control-code" rows="15" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+            </div>
+          </div>
+          <div slot="footer">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <e2-status-bar id="emission-control-status-bar" theme="dark" style="min-width: 300px">
+                <e2-status-section slot="left" position="left">
+                  <e2-status-item id="emission-control-status-item" type="message" value=""></e2-status-item>
+                </e2-status-section>
+              </e2-status-bar>
+              <button id="emission-control-ok-button">OK</button>
+              <button id="emission-control-cancel-button">Cancel</button>
+            </div>
+          </div>
+        </e2-dialog>
+
+        <!-- Particle Lifecycle dialog -->
+        <e2-dialog id="particle-lifecycle-dialog" title="Particle Lifecycle Hooks" closable theme="dark">
+          <div class="options-dialog-container">
+            <div class="options-dialog-docs">
+              <h3>Particle Lifecycle Hooks</h3>
+              <p>Define custom update and draw functions for particles.</p>
+              
+              <h4>Update Function</h4>
+              <p>Called every frame for custom particle behavior.</p>
+              <pre><code><span class="fn-sig">function(system, dt) {</span>
+  // Custom update logic
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Parameters:</strong></p>
+              <ul>
+                <li><code>system</code> - ParticleSystem instance</li>
+                <li><code>dt</code> - Delta time (seconds)</li>
+              </ul>
+
+              <h4>PreDraw Function</h4>
+              <p>Called before default rendering. Set context state here.</p>
+              <pre><code><span class="fn-sig">function(system, context) {</span>
+  // Set shadows, alpha, etc.
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Parameters:</strong></p>
+              <ul>
+                <li><code>system</code> - ParticleSystem instance</li>
+                <li><code>context</code> - CanvasRenderingContext2D</li>
+              </ul>
+
+              <h4>PostDraw Function</h4>
+              <p>Called after default rendering. Add custom effects.</p>
+              <pre><code><span class="fn-sig">function(system, context) {</span>
+  // Draw additional effects
+<span class="fn-sig">}</span></code></pre>
+
+              <h4>Context (this)</h4>
+              <p>All functions are bound to the Particle instance:</p>
+              <ul>
+                <li><code>this.position</code> - Particle position {x, y}</li>
+                <li><code>this.velocity</code> - Particle velocity {x, y}</li>
+                <li><code>this.size</code> - Particle size {x, y}</li>
+                <li><code>this.rotation</code> - Particle rotation (radians)</li>
+                <li><code>this.age</code> - Particle age (seconds)</li>
+                <li><code>this.lifespan</code> - Particle lifespan (seconds)</li>
+              </ul>
+
+              <h4>Examples</h4>
+              <pre><code>// Update: Wobble effect
+<span class="fn-sig">function(system, dt) {</span>
+  this.position.x += Math.sin(this.age * 10) * 2;
+<span class="fn-sig">}</span>
+
+// PreDraw: Add shadow
+<span class="fn-sig">function(system, context) {</span>
+  context.shadowColor = 'black';
+  context.shadowBlur = 10;
+<span class="fn-sig">}</span>
+
+// PostDraw: Draw text
+<span class="fn-sig">function(system, context) {</span>
+  context.fillStyle = 'white';
+  context.fillText('!', 0, 0);
+<span class="fn-sig">}</span></code></pre>
+            </div>
+            <div class="options-dialog-editor" style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; flex-direction: column;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                  <input type="checkbox" id="particle-lifecycle-update-enabled" />
+                  Update
+                </label>
+                <textarea id="particle-lifecycle-update" rows="8" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                  <input type="checkbox" id="particle-lifecycle-predraw-enabled" />
+                  PreDraw
+                </label>
+                <textarea id="particle-lifecycle-predraw" rows="8" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                  <input type="checkbox" id="particle-lifecycle-postdraw-enabled" />
+                  PostDraw
+                </label>
+                <textarea id="particle-lifecycle-postdraw" rows="8" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+              </div>
+            </div>
+          </div>
+          <div slot="footer">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <e2-status-bar id="particle-lifecycle-status-bar" theme="dark" style="min-width: 300px">
+                <e2-status-section slot="left" position="left">
+                  <e2-status-item id="particle-lifecycle-status-item" type="message" value=""></e2-status-item>
+                </e2-status-section>
+              </e2-status-bar>
+              <button id="particle-lifecycle-ok-button">OK</button>
+              <button id="particle-lifecycle-cancel-button">Cancel</button>
+            </div>
+          </div>
+        </e2-dialog>
+
+        <!-- Custom Force Function dialog -->
+        <e2-dialog id="custom-force-function-dialog" title="Custom Force Function" closable theme="dark">
+          <div class="options-dialog-container">
+            <div class="options-dialog-docs">
+              <h3>Custom Force Function</h3>
+              <p>Define a custom force field function to apply to particles.</p>
+              
+              <h4>Function Signature</h4>
+              <pre><code><span class="fn-sig">function(system, forceField, dt) {</span>
+  // Apply forces to this particle
+<span class="fn-sig">}</span></code></pre>
+              <p><strong>Parameters:</strong></p>
+              <ul>
+                <li><code>system</code> - ParticleSystem instance</li>
+                <li><code>forceField</code> - ForceField instance</li>
+                <li><code>dt</code> - Delta time (seconds)</li>
+              </ul>
+              
+              <h4>Context (this)</h4>
+              <p>The function is bound to the Particle being affected:</p>
+              <ul>
+                <li><code>this.position</code> - Particle position {x, y}</li>
+                <li><code>this.velocity</code> - Particle velocity {x, y}</li>
+                <li><code>this.size</code> - Particle size {x, y}</li>
+                <li><code>this.age</code> - Particle age (seconds)</li>
+              </ul>
+
+              <h4>ForceField Properties</h4>
+              <ul>
+                <li><code>forceField.force</code> - Force vector {x, y}</li>
+                <li><code>forceField.age</code> - Force field age (seconds)</li>
+                <li><code>forceField.customForceParams</code> - Custom parameters</li>
+              </ul>
+
+              <h4>Examples</h4>
+              <pre><code>// Circular motion
+<span class="fn-sig">function(system, forceField, dt) {</span>
+  const center = { x: 400, y: 300 };
+  const dx = this.position.x - center.x;
+  const dy = this.position.y - center.y;
+  this.velocity.x += -dy * dt;
+  this.velocity.y += dx * dt;
+<span class="fn-sig">}</span>
+
+// Age-based force
+<span class="fn-sig">function(system, forceField, dt) {</span>
+  const strength = this.age * 100;
+  this.velocity.y += strength * dt;
+<span class="fn-sig">}</span>
+
+// Particle interaction
+<span class="fn-sig">function(system, forceField, dt) {</span>
+  system.particles.forEach(other => {
+    if (other === this) return;
+    const dx = other.position.x - this.position.x;
+    const dy = other.position.y - this.position.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < 50 && dist > 0) {
+      this.velocity.x -= (dx/dist) * 10 * dt;
+      this.velocity.y -= (dy/dist) * 10 * dt;
+    }
+  });
+<span class="fn-sig">}</span></code></pre>
+            </div>
+            <div class="options-dialog-editor" style="display: flex; flex-direction: column;">
+              <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px;">
+                <input type="checkbox" id="custom-force-function-enabled" />
+                Enable Custom Force Function
+              </label>
+              <textarea id="custom-force-function-code" rows="20" style="font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+            </div>
+          </div>
+          <div slot="footer">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <e2-status-bar id="custom-force-function-status-bar" theme="dark" style="min-width: 300px">
+                <e2-status-section slot="left" position="left">
+                  <e2-status-item id="custom-force-function-status-item" type="message" value=""></e2-status-item>
+                </e2-status-section>
+              </e2-status-bar>
+              <button id="custom-force-function-ok-button">OK</button>
+              <button id="custom-force-function-cancel-button">Cancel</button>
+            </div>
           </div>
         </e2-dialog>
       </e2-app>

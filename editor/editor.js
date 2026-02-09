@@ -266,10 +266,25 @@ const EMITTER_SCHEMA = {
       title: 'Particle Options',
       description: 'Open JSON editor for particle configuration',
     },
+    editParticleFunctions: {
+      type: 'function',
+      title: 'Particle Functions',
+      description: 'Define custom functions for particle generation',
+    },
     editEmissionOptions: {
       type: 'function',
       title: 'Emission Options',
       description: 'Open JSON editor for emission configuration',
+    },
+    editEmissionControl: {
+      type: 'function',
+      title: 'Emission Control',
+      description: 'Define custom emission control function',
+    },
+    editParticleLifecycle: {
+      type: 'function',
+      title: 'Particle Lifecycle',
+      description: 'Define custom particle update and draw hooks',
     },
   },
   required: ['id', 'position', 'size', 'lifespan'],
@@ -343,6 +358,11 @@ const FORCEFIELD_SCHEMA = {
       type: 'function',
       title: 'Custom Force Parameters',
       description: 'Open JSON editor for custom force parameters',
+    },
+    editCustomForceFunction: {
+      type: 'function',
+      title: 'Custom Force Function',
+      description: 'Define custom force field function',
     },
   },
   required: ['id', 'force', 'lifespan'],
@@ -555,7 +575,11 @@ let statusBar, mouseStatusBarItem, selectedStatusBarItem, particlesStatusBarItem
 let settingsDialog, closeSettingsDialogButton;
 let particleOptionsDialog, particleOptionsJsonEditor, particleOptionsOkButton, particleOptionsCancelButton;
 let emissionOptionsDialog, emissionOptionsJsonEditor, emissionOptionsOkButton, emissionOptionsCancelButton;
+let particleFunctionsDialog, particleFunctionsTextareas, particleFunctionsCheckboxes, particleFunctionsOkButton, particleFunctionsCancelButton, particleFunctionsStatusBar, particleFunctionsStatusItem;
+let emissionControlDialog, emissionControlTextarea, emissionControlCheckbox, emissionControlOkButton, emissionControlCancelButton, emissionControlStatusBar, emissionControlStatusItem;
+let particleLifecycleDialog, particleLifecycleTextareas, particleLifecycleCheckboxes, particleLifecycleOkButton, particleLifecycleCancelButton, particleLifecycleStatusBar, particleLifecycleStatusItem;
 let customForceParamsDialog, customForceParamsJsonEditor, customForceParamsOkButton, customForceParamsCancelButton;
+let customForceFunctionDialog, customForceFunctionTextarea, customForceFunctionCheckbox, customForceFunctionOkButton, customForceFunctionCancelButton, customForceFunctionStatusBar, customForceFunctionStatusItem;
 let newEmitterContextMenuItem, newAttractorContextMenuItem, newForceFieldContextMenuItem, newColliderContextMenuItem, newSinkContextMenuItem;
 let deleteContextMenuItem, loadImageContextMenuItem;
 let namePrompt, imageIdPrompt;
@@ -655,10 +679,60 @@ function initialiseEditor() {
   emissionOptionsJsonEditor = document.getElementById('emission-options-json-editor');
   emissionOptionsOkButton = document.getElementById('emission-options-ok-button');
   emissionOptionsCancelButton = document.getElementById('emission-options-cancel-button');
+  particleFunctionsDialog = document.getElementById('particle-functions-dialog');
+  particleFunctionsTextareas = {
+    position: document.getElementById('particle-fn-position'),
+    speed: document.getElementById('particle-fn-speed'),
+    direction: document.getElementById('particle-fn-direction'),
+    size: document.getElementById('particle-fn-size'),
+    rotation: document.getElementById('particle-fn-rotation'),
+    lifespan: document.getElementById('particle-fn-lifespan'),
+  };
+  particleFunctionsCheckboxes = {
+    position: document.getElementById('particle-fn-position-enabled'),
+    speed: document.getElementById('particle-fn-speed-enabled'),
+    direction: document.getElementById('particle-fn-direction-enabled'),
+    size: document.getElementById('particle-fn-size-enabled'),
+    rotation: document.getElementById('particle-fn-rotation-enabled'),
+    lifespan: document.getElementById('particle-fn-lifespan-enabled'),
+  };
+  particleFunctionsOkButton = document.getElementById('particle-functions-ok-button');
+  particleFunctionsCancelButton = document.getElementById('particle-functions-cancel-button');
+  particleFunctionsStatusBar = document.getElementById('particle-functions-status-bar');
+  particleFunctionsStatusItem = document.getElementById('particle-functions-status-item');
+  emissionControlDialog = document.getElementById('emission-control-dialog');
+  emissionControlTextarea = document.getElementById('emission-control-code');
+  emissionControlCheckbox = document.getElementById('emission-control-enabled');
+  emissionControlOkButton = document.getElementById('emission-control-ok-button');
+  emissionControlCancelButton = document.getElementById('emission-control-cancel-button');
+  emissionControlStatusBar = document.getElementById('emission-control-status-bar');
+  emissionControlStatusItem = document.getElementById('emission-control-status-item');
+  particleLifecycleDialog = document.getElementById('particle-lifecycle-dialog');
+  particleLifecycleTextareas = {
+    update: document.getElementById('particle-lifecycle-update'),
+    preDraw: document.getElementById('particle-lifecycle-predraw'),
+    postDraw: document.getElementById('particle-lifecycle-postdraw'),
+  };
+  particleLifecycleCheckboxes = {
+    update: document.getElementById('particle-lifecycle-update-enabled'),
+    preDraw: document.getElementById('particle-lifecycle-predraw-enabled'),
+    postDraw: document.getElementById('particle-lifecycle-postdraw-enabled'),
+  };
+  particleLifecycleOkButton = document.getElementById('particle-lifecycle-ok-button');
+  particleLifecycleCancelButton = document.getElementById('particle-lifecycle-cancel-button');
+  particleLifecycleStatusBar = document.getElementById('particle-lifecycle-status-bar');
+  particleLifecycleStatusItem = document.getElementById('particle-lifecycle-status-item');
   customForceParamsDialog = document.getElementById('custom-force-params-dialog');
   customForceParamsJsonEditor = document.getElementById('custom-force-params-json-editor');
   customForceParamsOkButton = document.getElementById('custom-force-params-ok-button');
   customForceParamsCancelButton = document.getElementById('custom-force-params-cancel-button');
+  customForceFunctionDialog = document.getElementById('custom-force-function-dialog');
+  customForceFunctionTextarea = document.getElementById('custom-force-function-code');
+  customForceFunctionCheckbox = document.getElementById('custom-force-function-enabled');
+  customForceFunctionOkButton = document.getElementById('custom-force-function-ok-button');
+  customForceFunctionCancelButton = document.getElementById('custom-force-function-cancel-button');
+  customForceFunctionStatusBar = document.getElementById('custom-force-function-status-bar');
+  customForceFunctionStatusItem = document.getElementById('custom-force-function-status-item');
   newEmitterContextMenuItem = document.getElementById('new-emitter-context-menu-item');
   newAttractorContextMenuItem = document.getElementById('new-attractor-context-menu-item');
   newForceFieldContextMenuItem = document.getElementById('new-forcefield-context-menu-item');
@@ -697,6 +771,8 @@ function initialiseEditor() {
   settingsDialog.setAttribute('theme', editorState.settings.theme);
   particleOptionsDialog.setAttribute('theme', editorState.settings.theme);
   emissionOptionsDialog.setAttribute('theme', editorState.settings.theme);
+  particleFunctionsDialog.setAttribute('theme', editorState.settings.theme);
+  particleFunctionsStatusBar.setAttribute('theme', editorState.settings.theme);
   customForceParamsDialog.setAttribute('theme', editorState.settings.theme);
 
   console.log('Particle System Editor initialised successfully');
@@ -947,33 +1023,8 @@ function setupEventListeners() {
       if (obj && obj.type === 'emitter') {
         obj.options.particles = particleOptions;
 
-        // Update the particle system object immediately
-        const psObject = findParticleSystemObject(obj.id);
-        if (psObject) {
-          // Clone options to avoid modifying the definition
-          const clonedOptions = JSON.parse(JSON.stringify(obj.options));
-
-          // Convert image IDs to HTMLImageElements
-          if (clonedOptions?.particles?.style?.style === 'image') {
-            const imageId = clonedOptions.particles.style.image;
-            if (typeof imageId === 'string' && editorState.images[imageId]) {
-              clonedOptions.particles.style.image = editorState.images[imageId].element;
-            }
-          }
-
-          // Recreate the emitter with converted options
-          const emitterIndex = editorState.particleSystem.emitters.findIndex(e => e._id === obj.id);
-          if (emitterIndex >= 0) {
-            const newEmitter = new window.Emitter(
-              obj.position,
-              obj.size,
-              obj.lifespan,
-              clonedOptions
-            );
-            newEmitter._id = obj.id;
-            editorState.particleSystem.emitters[emitterIndex] = newEmitter;
-          }
-        }
+        // Recreate the emitter with all custom functions applied
+        recreateEmitterWithFunctions(obj);
 
         takeSnapshot('Edit Particle Options');
         updatePropertyEditor(obj);
@@ -982,6 +1033,7 @@ function setupEventListeners() {
       }
 
       particleOptionsDialog?.close();
+      statusBar?.showMessage('Particle options updated successfully', 'success', 3000);
     } catch (err) {
       console.error('Invalid JSON:', err);
       alert('Invalid JSON: ' + err.message);
@@ -990,6 +1042,251 @@ function setupEventListeners() {
 
   particleOptionsCancelButton?.addEventListener('click', () => {
     particleOptionsDialog?.close();
+  });
+
+  // Particle functions dialog handlers
+  particleFunctionsOkButton?.addEventListener('click', () => {
+    try {
+      const obj = findObjectById(editorState.selectedObjectId);
+      if (obj && obj.type === 'emitter') {
+        const functions = {};
+        const errors = [];
+
+        // Try to compile each enabled function
+        for (const [key, textarea] of Object.entries(particleFunctionsTextareas)) {
+          const checkbox = particleFunctionsCheckboxes[key];
+          const enabled = checkbox?.checked || false;
+          const code = textarea.value.trim();
+
+          if (enabled && code) {
+            try {
+              // Validate the function syntax by creating it (only with 'n' parameter)
+              const fn = new Function('n', code);
+              // Store as object with enabled flag and code
+              functions[key] = { enabled: true, code: code };
+            } catch (err) {
+              errors.push(`${key}: ${err.message}`);
+            }
+          } else if (enabled && !code) {
+            errors.push(`${key}: enabled but no code provided`);
+          } else {
+            // Store disabled state to preserve the code
+            functions[key] = { enabled: false, code: code };
+          }
+        }
+
+        if (errors.length > 0) {
+          particleFunctionsStatusItem.value = `Validation errors: ${errors.join(', ')}`;
+          particleFunctionsStatusBar?.showMessage(`Validation errors: ${errors.join(', ')}`, 'error', 5000);
+          return;
+        }
+
+        // Clear any previous error message
+        particleFunctionsStatusItem.value = '';
+
+        // Store the function objects in the emitter's custom functions
+        if (!obj.customFunctions) {
+          obj.customFunctions = {};
+        }
+        obj.customFunctions = functions;
+
+        // Recreate the emitter with the new functions
+        recreateEmitterWithFunctions(obj);
+
+        takeSnapshot('Edit Particle Functions');
+        updatePropertyEditor(obj);
+        editorState.dirty = true;
+        updateTitle();
+
+        particleFunctionsDialog?.close();
+        statusBar?.showMessage('Particle functions updated successfully', 'success', 3000);
+      }
+    } catch (err) {
+      console.error('Error updating particle functions:', err);
+      particleFunctionsStatusItem.value = `Error: ${err.message}`;
+      particleFunctionsStatusBar?.showMessage(`Error: ${err.message}`, 'error', 5000);
+    }
+  });
+
+  particleFunctionsCancelButton?.addEventListener('click', () => {
+    particleFunctionsDialog?.close();
+  });
+
+  // Emission control dialog handlers
+  emissionControlOkButton?.addEventListener('click', () => {
+    try {
+      const obj = findObjectById(editorState.selectedObjectId);
+      if (obj && obj.type === 'emitter') {
+        const enabled = emissionControlCheckbox?.checked || false;
+        const code = emissionControlTextarea.value.trim();
+
+        if (enabled && !code) {
+          emissionControlStatusItem.value = 'Enabled but no code provided';
+          emissionControlStatusBar?.showMessage('Enabled but no code provided', 'error', 5000);
+          return;
+        }
+
+        if (enabled && code) {
+          try {
+            // Validate the function syntax
+            const fn = new Function(code);
+            // Store as object with enabled flag and code
+            obj.customEmissionFunction = { enabled: true, code: code };
+          } catch (err) {
+            emissionControlStatusItem.value = `Validation error: ${err.message}`;
+            emissionControlStatusBar?.showMessage(`Validation error: ${err.message}`, 'error', 5000);
+            return;
+          }
+        } else {
+          // Store disabled state to preserve the code
+          obj.customEmissionFunction = { enabled: false, code: code };
+        }
+
+        // Clear any previous error message
+        emissionControlStatusItem.value = '';
+
+        // Recreate the emitter with the new function
+        recreateEmitterWithFunctions(obj);
+
+        takeSnapshot('Edit Emission Control Function');
+        updatePropertyEditor(obj);
+        editorState.dirty = true;
+        updateTitle();
+
+        emissionControlDialog?.close();
+      }
+    } catch (err) {
+      console.error('Error saving emission control function:', err);
+      emissionControlStatusItem.value = `Error: ${err.message}`;
+      emissionControlStatusBar?.showMessage(`Error: ${err.message}`, 'error', 5000);
+    }
+  });
+
+  emissionControlCancelButton?.addEventListener('click', () => {
+    emissionControlDialog?.close();
+  });
+
+  // Particle lifecycle dialog handlers
+  particleLifecycleOkButton?.addEventListener('click', () => {
+    try {
+      const obj = findObjectById(editorState.selectedObjectId);
+      if (obj && obj.type === 'emitter') {
+        const functions = {};
+        const errors = [];
+
+        // Try to compile each enabled function
+        for (const [key, textarea] of Object.entries(particleLifecycleTextareas)) {
+          const checkbox = particleLifecycleCheckboxes[key];
+          const enabled = checkbox?.checked || false;
+          const code = textarea.value.trim();
+
+          if (enabled && code) {
+            try {
+              // Validate the function syntax (parameters depend on the function type)
+              let fn;
+              if (key === 'update') {
+                fn = new Function('system', 'dt', code);
+              } else if (key === 'preDraw' || key === 'postDraw') {
+                fn = new Function('system', 'context', code);
+              }
+              // Store as object with enabled flag and code
+              functions[key] = { enabled: true, code: code };
+            } catch (err) {
+              errors.push(`${key}: ${err.message}`);
+            }
+          } else if (enabled && !code) {
+            errors.push(`${key}: enabled but no code provided`);
+          } else {
+            // Store disabled state to preserve the code
+            functions[key] = { enabled: false, code: code };
+          }
+        }
+
+        if (errors.length > 0) {
+          particleLifecycleStatusItem.value = `Validation errors: ${errors.join(', ')}`;
+          particleLifecycleStatusBar?.showMessage(`Validation errors: ${errors.join(', ')}`, 'error', 5000);
+          return;
+        }
+
+        // Clear any previous error message
+        particleLifecycleStatusItem.value = '';
+
+        // Store the function objects in the emitter's custom lifecycle hooks
+        obj.customLifecycleHooks = functions;
+
+        // Recreate the emitter with the new functions
+        recreateEmitterWithFunctions(obj);
+
+        takeSnapshot('Edit Particle Lifecycle Hooks');
+        updatePropertyEditor(obj);
+        editorState.dirty = true;
+        updateTitle();
+
+        particleLifecycleDialog?.close();
+      }
+    } catch (err) {
+      console.error('Error saving particle lifecycle hooks:', err);
+      particleLifecycleStatusItem.value = `Error: ${err.message}`;
+      particleLifecycleStatusBar?.showMessage(`Error: ${err.message}`, 'error', 5000);
+    }
+  });
+
+  particleLifecycleCancelButton?.addEventListener('click', () => {
+    particleLifecycleDialog?.close();
+  });
+
+  // Custom force function dialog handlers
+  customForceFunctionOkButton?.addEventListener('click', () => {
+    try {
+      const obj = findObjectById(editorState.selectedObjectId);
+      if (obj && obj.type === 'forcefield') {
+        const enabled = customForceFunctionCheckbox?.checked || false;
+        const code = customForceFunctionTextarea.value.trim();
+
+        if (enabled && !code) {
+          customForceFunctionStatusItem.value = 'Enabled but no code provided';
+          customForceFunctionStatusBar?.showMessage('Enabled but no code provided', 'error', 5000);
+          return;
+        }
+
+        if (enabled && code) {
+          try {
+            // Validate the function syntax
+            const fn = new Function('system', 'forceField', 'dt', code);
+            // Store as object with enabled flag and code
+            obj.customForceFunction = { enabled: true, code: code };
+          } catch (err) {
+            customForceFunctionStatusItem.value = `Validation error: ${err.message}`;
+            customForceFunctionStatusBar?.showMessage(`Validation error: ${err.message}`, 'error', 5000);
+            return;
+          }
+        } else {
+          // Store disabled state to preserve the code
+          obj.customForceFunction = { enabled: false, code: code };
+        }
+
+        // Clear any previous error message
+        customForceFunctionStatusItem.value = '';
+
+        // Recreate the force field with the new function
+        recreateForceFieldWithFunction(obj);
+
+        takeSnapshot('Edit Custom Force Function');
+        updatePropertyEditor(obj);
+        editorState.dirty = true;
+        updateTitle();
+
+        customForceFunctionDialog?.close();
+      }
+    } catch (err) {
+      console.error('Error saving custom force function:', err);
+      customForceFunctionStatusItem.value = `Error: ${err.message}`;
+      customForceFunctionStatusBar?.showMessage(`Error: ${err.message}`, 'error', 5000);
+    }
+  });
+
+  customForceFunctionCancelButton?.addEventListener('click', () => {
+    customForceFunctionDialog?.close();
   });
 
   // Emission options dialog handlers
@@ -1002,33 +1299,8 @@ function setupEventListeners() {
       if (obj && obj.type === 'emitter') {
         obj.options.emission = emissionOptions;
 
-        // Update the particle system object immediately
-        const psObject = findParticleSystemObject(obj.id);
-        if (psObject) {
-          // Clone options to avoid modifying the definition
-          const clonedOptions = JSON.parse(JSON.stringify(obj.options));
-
-          // Convert image IDs to HTMLImageElements
-          if (clonedOptions?.particles?.style?.style === 'image') {
-            const imageId = clonedOptions.particles.style.image;
-            if (typeof imageId === 'string' && editorState.images[imageId]) {
-              clonedOptions.particles.style.image = editorState.images[imageId].element;
-            }
-          }
-
-          // Recreate the emitter with converted options
-          const emitterIndex = editorState.particleSystem.emitters.findIndex(e => e._id === obj.id);
-          if (emitterIndex >= 0) {
-            const newEmitter = new window.Emitter(
-              obj.position,
-              obj.size,
-              obj.lifespan,
-              clonedOptions
-            );
-            newEmitter._id = obj.id;
-            editorState.particleSystem.emitters[emitterIndex] = newEmitter;
-          }
-        }
+        // Recreate the emitter with all custom functions applied
+        recreateEmitterWithFunctions(obj);
 
         takeSnapshot('Edit Emission Options');
         updatePropertyEditor(obj);
@@ -1037,6 +1309,7 @@ function setupEventListeners() {
       }
 
       emissionOptionsDialog?.close();
+      statusBar?.showMessage('Emission options updated successfully', 'success', 3000);
     } catch (err) {
       console.error('Invalid JSON:', err);
       alert('Invalid JSON: ' + err.message);
@@ -1070,6 +1343,7 @@ function setupEventListeners() {
       }
 
       customForceParamsDialog?.close();
+      statusBar?.showMessage('Custom force parameters updated successfully', 'success', 3000);
     } catch (err) {
       console.error('Invalid JSON:', err);
       alert('Invalid JSON: ' + err.message);
@@ -1967,6 +2241,94 @@ function recreateParticleSystem() {
     // Deep clone the options to avoid modifying the original
     const clonedOptions = JSON.parse(JSON.stringify(def.options));
 
+    // Convert particle generation function strings to actual functions
+    if (def.customFunctions) {
+      for (const [key, fnData] of Object.entries(def.customFunctions)) {
+        // Handle both old format (string) and new format (object)
+        let code = null;
+        let enabled = false;
+
+        if (typeof fnData === 'string') {
+          // Old format: just a string
+          code = fnData;
+          enabled = true;
+        } else if (fnData && typeof fnData === 'object') {
+          // New format: { enabled, code }
+          code = fnData.code;
+          enabled = fnData.enabled;
+        }
+
+        if (enabled && code) {
+          try {
+            // Create the function with only 'n' parameter
+            const fn = new Function('n', code);
+            clonedOptions.particles[key] = fn;
+          } catch (err) {
+            console.error(`Error creating ${key} function for emitter ${def.id}:`, err);
+          }
+        }
+      }
+    }
+
+    // Convert custom emission control function
+    if (def.customEmissionFunction) {
+      const fnData = def.customEmissionFunction;
+      let code = null;
+      let enabled = false;
+
+      if (typeof fnData === 'string') {
+        code = fnData;
+        enabled = true;
+      } else if (fnData && typeof fnData === 'object') {
+        code = fnData.code;
+        enabled = fnData.enabled;
+      }
+
+      if (enabled && code) {
+        try {
+          const fn = new Function(code);
+          clonedOptions.emission.f = fn;
+          clonedOptions.emission.type = 'custom';
+        } catch (err) {
+          console.error(`Error creating emission control function for emitter ${def.id}:`, err);
+        }
+      }
+    }
+
+    // Convert particle lifecycle hooks
+    if (def.customLifecycleHooks) {
+      if (!clonedOptions.particles.options) {
+        clonedOptions.particles.options = {};
+      }
+
+      for (const [key, fnData] of Object.entries(def.customLifecycleHooks)) {
+        let code = null;
+        let enabled = false;
+
+        if (typeof fnData === 'string') {
+          code = fnData;
+          enabled = true;
+        } else if (fnData && typeof fnData === 'object') {
+          code = fnData.code;
+          enabled = fnData.enabled;
+        }
+
+        if (enabled && code) {
+          try {
+            let fn;
+            if (key === 'update') {
+              fn = new Function('system', 'dt', code);
+            } else if (key === 'preDraw' || key === 'postDraw') {
+              fn = new Function('system', 'context', code);
+            }
+            clonedOptions.particles.options[key] = fn;
+          } catch (err) {
+            console.error(`Error creating ${key} lifecycle hook for emitter ${def.id}:`, err);
+          }
+        }
+      }
+    }
+
     // Convert image IDs to HTMLImageElements
     if (clonedOptions?.particles?.style?.style === 'image') {
       const imageId = clonedOptions.particles.style.image;
@@ -2013,6 +2375,31 @@ function recreateParticleSystem() {
       def.customForceParams,
       def.id
     );
+
+    // Apply custom force function if defined
+    if (def.customForceFunction) {
+      const fnData = def.customForceFunction;
+      let code = null;
+      let enabled = false;
+
+      if (typeof fnData === 'string') {
+        code = fnData;
+        enabled = true;
+      } else if (fnData && typeof fnData === 'object') {
+        code = fnData.code;
+        enabled = fnData.enabled;
+      }
+
+      if (enabled && code) {
+        try {
+          const fn = new Function('system', 'forceField', 'dt', code);
+          forceField.customForce = fn;
+        } catch (err) {
+          console.error(`Error creating custom force function for forcefield ${def.id}:`, err);
+        }
+      }
+    }
+
     editorState.particleSystem.forceFields.push(forceField);
   }
 
@@ -2778,8 +3165,17 @@ function updatePropertyEditor() {
         flattenedValue.editParticleOptions = function() {
           openParticleOptionsDialog(obj);
         };
+        flattenedValue.editParticleFunctions = function() {
+          openParticleFunctionsDialog(obj);
+        };
         flattenedValue.editEmissionOptions = function() {
           openEmissionOptionsDialog(obj);
+        };
+        flattenedValue.editEmissionControl = function() {
+          openEmissionControlDialog(obj);
+        };
+        flattenedValue.editParticleLifecycle = function() {
+          openParticleLifecycleDialog(obj);
         };
       }
 
@@ -2787,6 +3183,9 @@ function updatePropertyEditor() {
       if (obj.type === 'forcefield') {
         flattenedValue.editCustomForceParams = function() {
           openCustomForceParamsDialog(obj);
+        };
+        flattenedValue.editCustomForceFunction = function() {
+          openCustomForceFunctionDialog(obj);
         };
       }
 
@@ -3458,6 +3857,217 @@ function openEmissionOptionsDialog(emitter) {
   emissionOptionsDialog.showModal();
 }
 
+function openParticleFunctionsDialog(emitter) {
+  if (!emitter || !particleFunctionsDialog || !particleFunctionsTextareas) return;
+
+  // Clear any previous status message
+  if (particleFunctionsStatusItem) {
+    particleFunctionsStatusItem.value = '';
+  }
+
+  // Get the current custom functions
+  const customFunctions = emitter.customFunctions || {};
+
+  // Default function templates (used when no saved function exists)
+  const templates = {
+    position: 'return { x: 0, y: 0 };',
+    speed: 'return 100;',
+    direction: 'return 0;',
+    size: 'return { x: 10, y: 10 };',
+    rotation: 'return 0;',
+    lifespan: 'return 3;',
+  };
+
+  // Populate textareas and checkboxes
+  for (const [key, textarea] of Object.entries(particleFunctionsTextareas)) {
+    const checkbox = particleFunctionsCheckboxes[key];
+    const fnData = customFunctions[key];
+
+    // Handle both old format (string) and new format (object)
+    if (typeof fnData === 'string') {
+      // Old format: just a string
+      textarea.value = fnData;
+      checkbox.checked = true;
+    } else if (fnData && typeof fnData === 'object') {
+      // New format: { enabled, code }
+      textarea.value = fnData.code || templates[key];
+      checkbox.checked = fnData.enabled || false;
+    } else {
+      // No saved function
+      textarea.value = templates[key];
+      checkbox.checked = false;
+    }
+
+    // Enable/disable textarea based on checkbox
+    textarea.disabled = !checkbox.checked;
+  }
+
+  // Add event listeners for checkboxes to enable/disable textareas
+  for (const [key, checkbox] of Object.entries(particleFunctionsCheckboxes)) {
+    checkbox.onchange = () => {
+      particleFunctionsTextareas[key].disabled = !checkbox.checked;
+    };
+  }
+
+  // Open the dialog
+  particleFunctionsDialog.showModal();
+}
+
+function recreateEmitterWithFunctions(emitterObj) {
+  if (!emitterObj || emitterObj.type !== 'emitter') return;
+
+  const psObject = findParticleSystemObject(emitterObj.id);
+  if (!psObject) return;
+
+  // Clone options to avoid modifying the definition
+  const clonedOptions = JSON.parse(JSON.stringify(emitterObj.options));
+
+  // Convert particle generation function strings to actual functions
+  if (emitterObj.customFunctions) {
+    for (const [key, fnData] of Object.entries(emitterObj.customFunctions)) {
+      // Handle both old format (string) and new format (object)
+      let code = null;
+      let enabled = false;
+
+      if (typeof fnData === 'string') {
+        // Old format: just a string
+        code = fnData;
+        enabled = true;
+      } else if (fnData && typeof fnData === 'object') {
+        // New format: { enabled, code }
+        code = fnData.code;
+        enabled = fnData.enabled;
+      }
+
+      if (enabled && code) {
+        try {
+          // Create the function with only 'n' parameter
+          // The function body is the stored string
+          const fn = new Function('n', code);
+          clonedOptions.particles[key] = fn;
+        } catch (err) {
+          console.error(`Error creating ${key} function:`, err);
+        }
+      }
+    }
+  }
+
+  // Handle custom emission control function
+  if (emitterObj.customEmissionFunction) {
+    const fnData = emitterObj.customEmissionFunction;
+    let code = null;
+    let enabled = false;
+
+    if (typeof fnData === 'string') {
+      code = fnData;
+      enabled = true;
+    } else if (fnData && typeof fnData === 'object') {
+      code = fnData.code;
+      enabled = fnData.enabled;
+    }
+
+    if (enabled && code) {
+      try {
+        const fn = new Function(code);
+        clonedOptions.emission.f = fn;
+        clonedOptions.emission.type = 'custom';
+      } catch (err) {
+        console.error('Error creating emission control function:', err);
+      }
+    }
+  }
+
+  // Handle particle lifecycle hooks
+  if (emitterObj.customLifecycleHooks) {
+    if (!clonedOptions.particles.options) {
+      clonedOptions.particles.options = {};
+    }
+
+    for (const [key, fnData] of Object.entries(emitterObj.customLifecycleHooks)) {
+      let code = null;
+      let enabled = false;
+
+      if (typeof fnData === 'string') {
+        code = fnData;
+        enabled = true;
+      } else if (fnData && typeof fnData === 'object') {
+        code = fnData.code;
+        enabled = fnData.enabled;
+      }
+
+      if (enabled && code) {
+        try {
+          let fn;
+          if (key === 'update') {
+            fn = new Function('system', 'dt', code);
+          } else if (key === 'preDraw' || key === 'postDraw') {
+            fn = new Function('system', 'context', code);
+          }
+          clonedOptions.particles.options[key] = fn;
+        } catch (err) {
+          console.error(`Error creating ${key} lifecycle hook:`, err);
+        }
+      }
+    }
+  }
+
+  // Convert image IDs to HTMLImageElements
+  if (clonedOptions?.particles?.style?.style === 'image') {
+    const imageId = clonedOptions.particles.style.image;
+    if (typeof imageId === 'string' && editorState.images[imageId]) {
+      clonedOptions.particles.style.image = editorState.images[imageId].element;
+    }
+  }
+
+  // Recreate the emitter with converted options
+  const emitterIndex = editorState.particleSystem.emitters.findIndex(e => e._id === emitterObj.id);
+  if (emitterIndex >= 0) {
+    const newEmitter = new window.Emitter(
+      emitterObj.position,
+      emitterObj.size,
+      emitterObj.lifespan,
+      clonedOptions
+    );
+    newEmitter._id = emitterObj.id;
+    editorState.particleSystem.emitters[emitterIndex] = newEmitter;
+  }
+}
+
+function recreateForceFieldWithFunction(forcefieldObj) {
+  if (!forcefieldObj || forcefieldObj.type !== 'forcefield') return;
+
+  const psObject = findParticleSystemObject(forcefieldObj.id);
+  if (!psObject) return;
+
+  // Get the custom force function
+  const fnData = forcefieldObj.customForceFunction;
+  
+  // Handle both old format (string) and new format (object)
+  let code = null;
+  let enabled = false;
+
+  if (typeof fnData === 'string') {
+    code = fnData;
+    enabled = true;
+  } else if (fnData && typeof fnData === 'object') {
+    code = fnData.code;
+    enabled = fnData.enabled;
+  }
+
+  // If enabled and has code, set the custom force function
+  if (enabled && code) {
+    try {
+      const fn = new Function('system', 'forceField', 'dt', code);
+      psObject.customForce = fn;
+    } catch (err) {
+      console.error('Error creating custom force function:', err);
+    }
+  } else {
+    // Remove custom force if disabled
+    delete psObject.customForce;
+  }
+}
+
 function openCustomForceParamsDialog(forcefield) {
   if (!forcefield || !customForceParamsDialog || !customForceParamsJsonEditor) return;
 
@@ -3475,4 +4085,129 @@ function openCustomForceParamsDialog(forcefield) {
 
   // Open the dialog
   customForceParamsDialog.showModal();
+}
+function openEmissionControlDialog(emitter) {
+  if (!emitter || !emissionControlDialog || !emissionControlTextarea) return;
+
+  // Clear any previous status message
+  if (emissionControlStatusItem) {
+    emissionControlStatusItem.value = '';
+  }
+
+  // Get the current custom emission function
+  const fnData = emitter.customEmissionFunction;
+
+  // Default template
+  const template = 'return 1;';
+
+  // Handle both old format (string) and new format (object)
+  if (typeof fnData === 'string') {
+    emissionControlTextarea.value = fnData;
+    emissionControlCheckbox.checked = true;
+  } else if (fnData && typeof fnData === 'object') {
+    emissionControlTextarea.value = fnData.code || template;
+    emissionControlCheckbox.checked = fnData.enabled || false;
+  } else {
+    emissionControlTextarea.value = template;
+    emissionControlCheckbox.checked = false;
+  }
+
+  // Enable/disable textarea based on checkbox
+  emissionControlTextarea.disabled = !emissionControlCheckbox.checked;
+
+  // Add event listener for checkbox
+  emissionControlCheckbox.onchange = () => {
+    emissionControlTextarea.disabled = !emissionControlCheckbox.checked;
+  };
+
+  // Open the dialog
+  emissionControlDialog.showModal();
+}
+
+function openParticleLifecycleDialog(emitter) {
+  if (!emitter || !particleLifecycleDialog || !particleLifecycleTextareas) return;
+
+  // Clear any previous status message
+  if (particleLifecycleStatusItem) {
+    particleLifecycleStatusItem.value = '';
+  }
+
+  // Get the current custom lifecycle hooks
+  const customHooks = emitter.customLifecycleHooks || {};
+
+  // Default function templates
+  const templates = {
+    update: '// Custom update logic\n// this.velocity.x += 10 * dt;',
+    preDraw: '// Set context state\n// context.shadowColor = "black";\n// context.shadowBlur = 10;',
+    postDraw: '// Draw additional effects\n// context.fillStyle = "white";\n// context.fillText("!", 0, 0);',
+  };
+
+  // Populate textareas and checkboxes
+  for (const [key, textarea] of Object.entries(particleLifecycleTextareas)) {
+    const checkbox = particleLifecycleCheckboxes[key];
+    const fnData = customHooks[key];
+
+    // Handle both old format (string) and new format (object)
+    if (typeof fnData === 'string') {
+      textarea.value = fnData;
+      checkbox.checked = true;
+    } else if (fnData && typeof fnData === 'object') {
+      textarea.value = fnData.code || templates[key];
+      checkbox.checked = fnData.enabled || false;
+    } else {
+      textarea.value = templates[key];
+      checkbox.checked = false;
+    }
+
+    // Enable/disable textarea based on checkbox
+    textarea.disabled = !checkbox.checked;
+  }
+
+  // Add event listeners for checkboxes
+  for (const [key, checkbox] of Object.entries(particleLifecycleCheckboxes)) {
+    checkbox.onchange = () => {
+      particleLifecycleTextareas[key].disabled = !checkbox.checked;
+    };
+  }
+
+  // Open the dialog
+  particleLifecycleDialog.showModal();
+}
+
+function openCustomForceFunctionDialog(forcefield) {
+  if (!forcefield || !customForceFunctionDialog || !customForceFunctionTextarea) return;
+
+  // Clear any previous status message
+  if (customForceFunctionStatusItem) {
+    customForceFunctionStatusItem.value = '';
+  }
+
+  // Get the current custom force function
+  const fnData = forcefield.customForceFunction;
+
+  // Default template
+  const template = '// Apply custom force to this particle\n// this.velocity.x += 10 * dt;\n// this.velocity.y += 10 * dt;';
+
+  // Handle both old format (string) and new format (object)
+  if (typeof fnData === 'string') {
+    customForceFunctionTextarea.value = fnData;
+    customForceFunctionCheckbox.checked = true;
+  } else if (fnData && typeof fnData === 'object') {
+    customForceFunctionTextarea.value = fnData.code || template;
+    customForceFunctionCheckbox.checked = fnData.enabled || false;
+  } else {
+    customForceFunctionTextarea.value = template;
+    customForceFunctionCheckbox.checked = false;
+  }
+
+  // Enable/disable textarea based on checkbox
+  customForceFunctionTextarea.disabled = !customForceFunctionCheckbox.checked;
+
+  // Add event listener for checkbox
+  customForceFunctionCheckbox.onchange = () => {
+    customForceFunctionTextarea.disabled = !customForceFunctionCheckbox.checked;
+  };
+
+  // Open the dialog
+  customForceFunctionDialog.showModal();
 }
