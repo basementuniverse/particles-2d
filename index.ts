@@ -875,7 +875,7 @@ export type EmitterOptions = {
      * - a custom function which takes the number of particles emitted so far in
      *   the current round of emission and returns a size vector (x, y)
      */
-    size: vec2 | RandomRange | ((n: number) => vec2);
+    size: vec2 | RandomRange<vec2> | ((n: number) => vec2);
 
     /**
      * The initial rotation of new particles in radians. This can be one of:
@@ -1141,10 +1141,10 @@ export class Emitter {
       size = this.options.particles.size.bind(this)(n);
     } else if (isRandomRange(this.options.particles.size)) {
       // Random size range
-      size = calculateRandomRange(this.options.particles.size);
+      size = calculateRandomRange<vec2>(this.options.particles.size);
     } else {
       // Fixed size
-      size = this.options.particles.size;
+      size = this.options.particles.size as vec2;
     }
 
     // Generate rotation
