@@ -567,7 +567,7 @@ let particleOptionsEditor, emissionOptionsEditor, customForceParamsEditor;
 let sceneTree, propertiesTitle, propertyEditor, historyView, settingsEditor;
 let newToolbarButton, openToolbarButton, saveToolbarButton;
 let undoToolbarButton, redoToolbarButton;
-let newEmitterToolbarButton, newAttractorToolbarButton, newForceFieldToolbarButton, newColliderToolbarButton, newSinkToolbarButton;
+let createToolbarMenu;
 let deleteToolbarButton;
 let playToolbarButton, pauseToolbarButton, resetToolbarButton, toggleElementsToolbarButton;
 let settingsToolbarButton, themeSwitch;
@@ -651,11 +651,7 @@ function initialiseEditor() {
   saveToolbarButton = document.getElementById('save-toolbar-button');
   undoToolbarButton = document.getElementById('undo-toolbar-button');
   redoToolbarButton = document.getElementById('redo-toolbar-button');
-  newEmitterToolbarButton = document.getElementById('new-emitter-toolbar-button');
-  newAttractorToolbarButton = document.getElementById('new-attractor-toolbar-button');
-  newForceFieldToolbarButton = document.getElementById('new-forcefield-toolbar-button');
-  newColliderToolbarButton = document.getElementById('new-collider-toolbar-button');
-  newSinkToolbarButton = document.getElementById('new-sink-toolbar-button');
+  createToolbarMenu = document.getElementById('create-toolbar-menu');
   deleteToolbarButton = document.getElementById('delete-toolbar-button');
   playToolbarButton = document.getElementById('play-toolbar-button');
   pauseToolbarButton = document.getElementById('pause-toolbar-button');
@@ -1404,21 +1400,6 @@ async function handleToolbarAction(action) {
     case 'redo':
       redo();
       break;
-    case 'new-emitter':
-      createEmitter();
-      break;
-    case 'new-attractor':
-      createAttractor();
-      break;
-    case 'new-forcefield':
-      createForceField();
-      break;
-    case 'new-collider':
-      createCollider();
-      break;
-    case 'new-sink':
-      createSink();
-      break;
     case 'delete':
       if (editorState.selectedObjectId) {
         deleteObject(editorState.selectedObjectId);
@@ -1448,20 +1429,25 @@ function handleContextMenuAction(action) {
   console.log('Context menu action:', action);
 
   switch (action) {
+    case 'new-emitter':
     case 'new-emitter-context':
-      createEmitter(editorState.mousePosition);
+      createEmitter(action.endsWith('-context') ? editorState.mousePosition : undefined);
       break;
+    case 'new-attractor':
     case 'new-attractor-context':
-      createAttractor(editorState.mousePosition);
+      createAttractor(action.endsWith('-context') ? editorState.mousePosition : undefined);
       break;
+    case 'new-forcefield':
     case 'new-forcefield-context':
       createForceField();
       break;
+    case 'new-collider':
     case 'new-collider-context':
-      createCollider(editorState.mousePosition);
+      createCollider(action.endsWith('-context') ? editorState.mousePosition : undefined);
       break;
+    case 'new-sink':
     case 'new-sink-context':
-      createSink(editorState.mousePosition);
+      createSink(action.endsWith('-context') ? editorState.mousePosition : undefined);
       break;
     case 'load-image-context':
       imageFileInput?.click();
@@ -2094,6 +2080,9 @@ function newProject() {
   resetSimulation();
 
   console.log('New project created');
+
+  // Show success message
+  E2.Toast.success('New particle system created!');
 }
 
 function openProject() {
@@ -2112,6 +2101,9 @@ function openProject() {
       editorState.dirty = false;
       updateTitle();
       console.log('Project loaded:', file.name);
+
+      // Show success message
+      E2.Toast.success('Particle system loaded successfully!');
     } catch (error) {
       console.error('Error loading project:', error);
       alert('Error loading project: ' + error.message);
@@ -2143,6 +2135,9 @@ async function saveProject() {
   editorState.dirty = false;
   updateTitle();
   console.log('Project saved');
+
+  // Show success message
+  E2.Toast.success('Particle system saved successfully!');
 }
 
 function serializeProject() {
@@ -3254,19 +3249,11 @@ function updateToolbarButtons() {
     saveToolbarButton?.setAttribute('disabled', '');
   }
 
-  // Create object buttons disabled when no project exists
+  // Create dropdown disabled when no project exists
   if (editorState.particleSystem) {
-    newEmitterToolbarButton?.removeAttribute('disabled');
-    newAttractorToolbarButton?.removeAttribute('disabled');
-    newForceFieldToolbarButton?.removeAttribute('disabled');
-    newColliderToolbarButton?.removeAttribute('disabled');
-    newSinkToolbarButton?.removeAttribute('disabled');
+    createToolbarMenu?.removeAttribute('disabled');
   } else {
-    newEmitterToolbarButton?.setAttribute('disabled', '');
-    newAttractorToolbarButton?.setAttribute('disabled', '');
-    newForceFieldToolbarButton?.setAttribute('disabled', '');
-    newColliderToolbarButton?.setAttribute('disabled', '');
-    newSinkToolbarButton?.setAttribute('disabled', '');
+    createToolbarMenu?.setAttribute('disabled', '');
   }
 
   // Delete button enabled when object selected
@@ -4041,7 +4028,7 @@ function recreateForceFieldWithFunction(forcefieldObj) {
 
   // Get the custom force function
   const fnData = forcefieldObj.customForceFunction;
-  
+
   // Handle both old format (string) and new format (object)
   let code = null;
   let enabled = false;

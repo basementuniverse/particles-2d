@@ -65,36 +65,42 @@
                 disabled
               ></e2-toolbar-button>
               <e2-toolbar-separator></e2-toolbar-separator>
-              <e2-toolbar-button
-                id="new-emitter-toolbar-button"
-                label="Emitter"
-                icon="💥"
-                action="new-emitter"
-              ></e2-toolbar-button>
-              <e2-toolbar-button
-                id="new-attractor-toolbar-button"
-                label="Attractor"
-                icon="🧲"
-                action="new-attractor"
-              ></e2-toolbar-button>
-              <e2-toolbar-button
-                id="new-forcefield-toolbar-button"
-                label="Force Field"
-                icon="➡️"
-                action="new-forcefield"
-              ></e2-toolbar-button>
-              <e2-toolbar-button
-                id="new-collider-toolbar-button"
-                label="Collider"
-                icon="⬜"
-                action="new-collider"
-              ></e2-toolbar-button>
-              <e2-toolbar-button
-                id="new-sink-toolbar-button"
-                label="Sink"
-                icon="🕳️"
-                action="new-sink"
-              ></e2-toolbar-button>
+              <e2-toolbar-menu
+                id="create-toolbar-menu"
+                label="Create"
+                icon="➕"
+              >
+                <e2-context-menu-item
+                  id="new-emitter-toolbar-menu-item"
+                  label="Emitter"
+                  icon="💥"
+                  action="new-emitter"
+                ></e2-context-menu-item>
+                <e2-context-menu-item
+                  id="new-attractor-toolbar-menu-item"
+                  label="Attractor"
+                  icon="🧲"
+                  action="new-attractor"
+                ></e2-context-menu-item>
+                <e2-context-menu-item
+                  id="new-forcefield-toolbar-menu-item"
+                  label="Force Field"
+                  icon="➡️"
+                  action="new-forcefield"
+                ></e2-context-menu-item>
+                <e2-context-menu-item
+                  id="new-collider-toolbar-menu-item"
+                  label="Collider"
+                  icon="⬜"
+                  action="new-collider"
+                ></e2-context-menu-item>
+                <e2-context-menu-item
+                  id="new-sink-toolbar-menu-item"
+                  label="Sink"
+                  icon="🕳️"
+                  action="new-sink"
+                ></e2-context-menu-item>
+              </e2-toolbar-menu>
               <e2-toolbar-separator></e2-toolbar-separator>
               <e2-toolbar-button
                 id="delete-toolbar-button"
@@ -811,13 +817,13 @@
             <div class="options-dialog-docs">
               <h3>Custom Emission Control</h3>
               <p>Define a custom function to control particle emission.</p>
-              
+
               <h4>Function Signature</h4>
               <pre><code><span class="fn-sig">function() {</span>
   return 1;
 <span class="fn-sig">}</span></code></pre>
               <p><strong>Returns:</strong> <code>number</code> - number of particles to emit this frame</p>
-              
+
               <h4>Context (this)</h4>
               <p>Inside the function, <code>this</code> is bound to the Emitter instance:</p>
               <ul>
@@ -876,7 +882,7 @@
             <div class="options-dialog-docs">
               <h3>Particle Lifecycle Hooks</h3>
               <p>Define custom update and draw functions for particles.</p>
-              
+
               <h4>Update Function</h4>
               <p>Called every frame for custom particle behavior.</p>
               <pre><code><span class="fn-sig">function(system, dt) {</span>
@@ -977,7 +983,7 @@
             <div class="options-dialog-docs">
               <h3>Custom Force Function</h3>
               <p>Define a custom force field function to apply to particles.</p>
-              
+
               <h4>Function Signature</h4>
               <pre><code><span class="fn-sig">function(system, forceField, dt) {</span>
   // Apply forces to this particle
@@ -988,7 +994,7 @@
                 <li><code>forceField</code> - ForceField instance</li>
                 <li><code>dt</code> - Delta time (seconds)</li>
               </ul>
-              
+
               <h4>Context (this)</h4>
               <p>The function is bound to the Particle being affected:</p>
               <ul>
