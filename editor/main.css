@@ -97,31 +97,6 @@ footer {
   height: 100%;
 }
 
-/* Toolbar and context menu buttons */
-e2-toolbar-separator,
-e2-toolbar-button,
-e2-toolbar-menu {
-  display: flex;
-}
-
-e2-toolbar-separator.hidden,
-e2-toolbar-button.hidden,
-e2-toolbar-menu.hidden {
-  display: none;
-}
-
-e2-context-menu-item,
-e2-context-menu-menu,
-e2-context-menu-separator {
-  display: flex;
-}
-
-e2-context-menu-item.hidden,
-e2-context-menu-menu.hidden,
-e2-context-menu-separator.hidden {
-  display: none;
-}
-
 /* Theme switch */
 .theme-switch {
   margin: 5px;
