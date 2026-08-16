@@ -8,7 +8,7 @@ import {
   pointInRectangle,
 } from '@basementuniverse/intersection-helpers/2d';
 import { vectorAlmostZero } from '@basementuniverse/intersection-helpers/utilities';
-import { parseColor } from '@basementuniverse/parsecolor';
+import { ColorUtils, RGBAColor, isRGBAColor } from '@basementuniverse/color';
 import {
   clamp,
   cltRandomInt,
@@ -46,21 +46,14 @@ function calculateRandomRange<T extends number | vec2 = number>(
   return r(range.min, range.max) as T;
 }
 
-export type Color = {
-  r: number;
-  g: number;
-  b: number;
-  a?: number;
-};
+export type Color = RGBAColor;
 
 function colorToString(color: Color): string {
   return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a ?? 1})`;
 }
 
 function isColorObject(color: Color | string): color is Color {
-  return (
-    typeof color === 'object' && 'r' in color && 'g' in color && 'b' in color
-  );
+  return isRGBAColor(color);
 }
 
 function prepareColor(color: Color | string | Color[] | string[]): string {
@@ -77,7 +70,7 @@ function makeTransparent(color: Color | string): Color {
   if (isColorObject(color)) {
     return { ...color, a: 0 };
   }
-  const parsed = parseColor(color);
+  const parsed = ColorUtils.stringToRGBA(color);
   return { ...parsed, a: 0 };
 }
 

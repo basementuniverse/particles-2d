@@ -1,14 +1,10 @@
+import { RGBAColor } from '@basementuniverse/color';
 import { vec2 } from '@basementuniverse/vec';
 export type RandomRange<T extends number | vec2 = number> = {
     min: T;
     max: T;
 };
-export type Color = {
-    r: number;
-    g: number;
-    b: number;
-    a?: number;
-};
+export type Color = RGBAColor;
 export declare class ParticleSystem {
     particles: Particle[];
     emitters: Emitter[];

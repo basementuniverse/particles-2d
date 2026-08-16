@@ -1,8 +1,8 @@
 const path = require('path');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
-module.exports = {
-  mode: process.env.NODE_ENV || 'development',
+module.exports = (env, argv) => ({
+  mode: argv.mode || 'development',
   entry: './index.ts',
   // devtool: 'inline-source-map',
   watchOptions: {
@@ -24,8 +24,11 @@ module.exports = {
     extensions: ['.tsx', '.ts', '.js'],
   },
   output: {
-    libraryTarget: 'umd',
-    publicPath: '/build/',
+    library: {
+      name: 'BasementUniverseParticles2d',
+      type: 'umd',
+    },
+    globalObject: 'globalThis',
     filename: 'index.js',
     path: path.resolve(__dirname, 'build'),
   },
@@ -38,4 +41,4 @@ module.exports = {
   plugins: [
     new CleanWebpackPlugin(),
   ],
-};
+});

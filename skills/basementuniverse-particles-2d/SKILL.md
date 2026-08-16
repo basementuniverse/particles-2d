@@ -8,6 +8,12 @@ description: >
 
 Use this skill when working with `@basementuniverse/particles-2d`, a feature-rich particle system library for 2D games and visual effects.
 
+The package publishes a UMD build. In bundlers such as webpack or Vite, use
+named imports from `@basementuniverse/particles-2d`. When loading the build with a
+browser `<script>` tag, use the `BasementUniverseParticles2d` global namespace,
+for example `BasementUniverseParticles2d.ParticleSystem`. The package does not
+publish a separate native ESM build.
+
 ## When to Use This Skill
 
 - Implementing particle effects (explosions, fire, smoke, sparkles, etc.)

@@ -8,6 +8,15 @@ A basic particle system component for use in 2d games.
 npm install @basementuniverse/particles-2d
 ```
 
+For direct browser usage, include the UMD build with a script tag:
+
+```html
+<script src="build/index.js"></script>
+```
+
+The build exposes its exports through the `BasementUniverseParticles2d` browser
+namespace. It does not add each export directly to `window`.
+
 ## How to use
 
 See `/demos` for some examples.
@@ -23,6 +32,20 @@ import {
   Collider,
   Sink,
 } from '@basementuniverse/particles-2d';
+```
+
+When using the library directly from a browser script, prefix exports with
+`BasementUniverseParticles2d`:
+
+```html
+<script src="build/index.js"></script>
+<script>
+  const particleSystem = new BasementUniverseParticles2d.ParticleSystem();
+
+  particleSystem.add(new BasementUniverseParticles2d.Emitter({
+    // options here...
+  }));
+</script>
 ```
 
 2. Create a `ParticleSystem` instance:
