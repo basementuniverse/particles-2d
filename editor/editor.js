@@ -320,7 +320,8 @@ const ATTRACTOR_SCHEMA = {
       title: 'Falloff',
       minimum: 0,
       maximum: 2,
-      description: 'How force decreases with distance (0 = linear, 2 = inverse square)',
+      description:
+        'How force decreases with distance (0 = linear, 2 = inverse square)',
     },
     lifespan: {
       type: 'number',
@@ -339,8 +340,16 @@ const FORCEFIELD_SCHEMA = {
       type: 'object',
       title: 'Force Vector',
       properties: {
-        x: { type: 'number', title: 'X Force', description: 'Horizontal force in pixels/second²' },
-        y: { type: 'number', title: 'Y Force', description: 'Vertical force in pixels/second²' },
+        x: {
+          type: 'number',
+          title: 'X Force',
+          description: 'Horizontal force in pixels/second²',
+        },
+        y: {
+          type: 'number',
+          title: 'Y Force',
+          description: 'Vertical force in pixels/second²',
+        },
       },
     },
     lifespan: {
@@ -351,7 +360,16 @@ const FORCEFIELD_SCHEMA = {
     customForce: {
       type: 'string',
       title: 'Custom Force',
-      enum: ['none', 'wave', 'vortex', 'orbital', 'vectorField', 'turbulence', 'drag', 'boids'],
+      enum: [
+        'none',
+        'wave',
+        'vortex',
+        'orbital',
+        'vectorField',
+        'turbulence',
+        'drag',
+        'boids',
+      ],
       description: 'Built-in force field function to apply',
     },
     editCustomForceParams: {
@@ -427,7 +445,8 @@ const COLLIDER_SCHEMA = {
       title: 'Randomness',
       minimum: 0,
       maximum: 1,
-      description: 'Random direction offset on collision (0 = none, 1 = maximum)',
+      description:
+        'Random direction offset on collision (0 = none, 1 = maximum)',
     },
   },
   required: ['id', 'geometry', 'restitution', 'friction', 'randomness'],
@@ -462,7 +481,8 @@ const SINK_SCHEMA = {
       title: 'Falloff',
       minimum: 0,
       maximum: 2,
-      description: 'Distance-based effect gradient (higher = stronger at center)',
+      description:
+        'Distance-based effect gradient (higher = stronger at center)',
     },
     mode: {
       type: 'string',
@@ -476,7 +496,15 @@ const SINK_SCHEMA = {
       description: 'Lifespan in seconds (-1 for infinite)',
     },
   },
-  required: ['id', 'position', 'range', 'strength', 'falloff', 'mode', 'lifespan'],
+  required: [
+    'id',
+    'position',
+    'range',
+    'strength',
+    'falloff',
+    'mode',
+    'lifespan',
+  ],
 };
 
 // Default object definitions
@@ -534,7 +562,11 @@ const DEFAULT_FORCEFIELD = {
 const DEFAULT_COLLIDER = {
   id: '',
   type: 'collider',
-  geometry: { type: 'rectangle', position: { x: 400, y: 550 }, size: { x: 800, y: 100 } },
+  geometry: {
+    type: 'rectangle',
+    position: { x: 400, y: 550 },
+    size: { x: 800, y: 100 },
+  },
   restitution: 0.4,
   friction: 0.6,
   randomness: 0.2,
@@ -557,7 +589,10 @@ let ParticleSystem, Emitter, Attractor, ForceField, Collider, Sink;
 // Debug library
 let Debug;
 
-// Canvas-helpers library
+// Canvas helpers library
+let CanvasHelpers;
+
+// Canvas-helpers library functions
 let drawGrid, drawCircle, drawRectangle, drawLine, drawArrow;
 
 // DOM elements
@@ -569,18 +604,62 @@ let newToolbarButton, openToolbarButton, saveToolbarButton;
 let undoToolbarButton, redoToolbarButton;
 let createToolbarMenu;
 let deleteToolbarButton;
-let playToolbarButton, pauseToolbarButton, resetToolbarButton, toggleElementsToolbarButton;
+let playToolbarButton,
+  pauseToolbarButton,
+  resetToolbarButton,
+  toggleElementsToolbarButton;
 let settingsToolbarButton, themeSwitch;
-let statusBar, mouseStatusBarItem, selectedStatusBarItem, particlesStatusBarItem, fpsStatusBarItem;
+let statusBar,
+  mouseStatusBarItem,
+  selectedStatusBarItem,
+  particlesStatusBarItem,
+  fpsStatusBarItem;
 let settingsDialog, closeSettingsDialogButton;
-let particleOptionsDialog, particleOptionsJsonEditor, particleOptionsOkButton, particleOptionsCancelButton;
-let emissionOptionsDialog, emissionOptionsJsonEditor, emissionOptionsOkButton, emissionOptionsCancelButton;
-let particleFunctionsDialog, particleFunctionsTextareas, particleFunctionsCheckboxes, particleFunctionsOkButton, particleFunctionsCancelButton, particleFunctionsStatusBar, particleFunctionsStatusItem;
-let emissionControlDialog, emissionControlTextarea, emissionControlCheckbox, emissionControlOkButton, emissionControlCancelButton, emissionControlStatusBar, emissionControlStatusItem;
-let particleLifecycleDialog, particleLifecycleTextareas, particleLifecycleCheckboxes, particleLifecycleOkButton, particleLifecycleCancelButton, particleLifecycleStatusBar, particleLifecycleStatusItem;
-let customForceParamsDialog, customForceParamsJsonEditor, customForceParamsOkButton, customForceParamsCancelButton;
-let customForceFunctionDialog, customForceFunctionTextarea, customForceFunctionCheckbox, customForceFunctionOkButton, customForceFunctionCancelButton, customForceFunctionStatusBar, customForceFunctionStatusItem;
-let newEmitterContextMenuItem, newAttractorContextMenuItem, newForceFieldContextMenuItem, newColliderContextMenuItem, newSinkContextMenuItem;
+let particleOptionsDialog,
+  particleOptionsJsonEditor,
+  particleOptionsOkButton,
+  particleOptionsCancelButton;
+let emissionOptionsDialog,
+  emissionOptionsJsonEditor,
+  emissionOptionsOkButton,
+  emissionOptionsCancelButton;
+let particleFunctionsDialog,
+  particleFunctionsTextareas,
+  particleFunctionsCheckboxes,
+  particleFunctionsOkButton,
+  particleFunctionsCancelButton,
+  particleFunctionsStatusBar,
+  particleFunctionsStatusItem;
+let emissionControlDialog,
+  emissionControlTextarea,
+  emissionControlCheckbox,
+  emissionControlOkButton,
+  emissionControlCancelButton,
+  emissionControlStatusBar,
+  emissionControlStatusItem;
+let particleLifecycleDialog,
+  particleLifecycleTextareas,
+  particleLifecycleCheckboxes,
+  particleLifecycleOkButton,
+  particleLifecycleCancelButton,
+  particleLifecycleStatusBar,
+  particleLifecycleStatusItem;
+let customForceParamsDialog,
+  customForceParamsJsonEditor,
+  customForceParamsOkButton,
+  customForceParamsCancelButton;
+let customForceFunctionDialog,
+  customForceFunctionTextarea,
+  customForceFunctionCheckbox,
+  customForceFunctionOkButton,
+  customForceFunctionCancelButton,
+  customForceFunctionStatusBar,
+  customForceFunctionStatusItem;
+let newEmitterContextMenuItem,
+  newAttractorContextMenuItem,
+  newForceFieldContextMenuItem,
+  newColliderContextMenuItem,
+  newSinkContextMenuItem;
 let deleteContextMenuItem, loadImageContextMenuItem;
 let namePrompt, imageIdPrompt;
 let imageFileInput;
@@ -597,7 +676,7 @@ function initialiseEditor() {
   console.log('Initializing Particle System Editor...');
 
   // Check if Particle System library is available
-  const PS = window.ParticleSystem;
+  const PS = window.BasementUniverseParticles2d;
   if (!PS) {
     console.error('Particle System library not found!');
     return;
@@ -609,8 +688,15 @@ function initialiseEditor() {
   Collider = PS.Collider;
   Sink = PS.Sink;
 
+  // Check if Canvas Helpers library is available
+  CanvasHelpers = window.BasementUniverseCanvasHelpers;
+  if (!CanvasHelpers) {
+    console.error('Canvas Helpers library not found!');
+    return;
+  }
+
   // Check if Debug library is available
-  Debug = window.default;
+  Debug = window.BasementUniverseDebug;
   if (!Debug) {
     console.error('Debug library not found!');
     return;
@@ -628,12 +714,13 @@ function initialiseEditor() {
 
   // Get canvas-helpers with context attached
   [drawGrid, drawCircle, drawRectangle, drawLine, drawArrow] =
-    withContext(context,
-      grid,
-      circle,
-      rectangle,
-      line,
-      arrow
+    CanvasHelpers.withContext(
+      context,
+      CanvasHelpers.grid,
+      CanvasHelpers.circle,
+      CanvasHelpers.rectangle,
+      CanvasHelpers.line,
+      CanvasHelpers.arrow
     );
 
   // Get DOM elements
@@ -656,7 +743,9 @@ function initialiseEditor() {
   playToolbarButton = document.getElementById('play-toolbar-button');
   pauseToolbarButton = document.getElementById('pause-toolbar-button');
   resetToolbarButton = document.getElementById('reset-toolbar-button');
-  toggleElementsToolbarButton = document.getElementById('toggle-elements-toolbar-button');
+  toggleElementsToolbarButton = document.getElementById(
+    'toggle-elements-toolbar-button'
+  );
   settingsToolbarButton = document.getElementById('settings-toolbar-button');
   themeSwitch = document.querySelector('.theme-switch input');
   statusBar = document.getElementById('status-bar');
@@ -666,16 +755,32 @@ function initialiseEditor() {
   fpsStatusBarItem = document.getElementById('fps-status');
   settingsDialog = document.getElementById('settings-dialog');
   settingsEditor = document.getElementById('settings-editor');
-  closeSettingsDialogButton = document.getElementById('close-settings-dialog-button');
+  closeSettingsDialogButton = document.getElementById(
+    'close-settings-dialog-button'
+  );
   particleOptionsDialog = document.getElementById('particle-options-dialog');
-  particleOptionsJsonEditor = document.getElementById('particle-options-json-editor');
-  particleOptionsOkButton = document.getElementById('particle-options-ok-button');
-  particleOptionsCancelButton = document.getElementById('particle-options-cancel-button');
+  particleOptionsJsonEditor = document.getElementById(
+    'particle-options-json-editor'
+  );
+  particleOptionsOkButton = document.getElementById(
+    'particle-options-ok-button'
+  );
+  particleOptionsCancelButton = document.getElementById(
+    'particle-options-cancel-button'
+  );
   emissionOptionsDialog = document.getElementById('emission-options-dialog');
-  emissionOptionsJsonEditor = document.getElementById('emission-options-json-editor');
-  emissionOptionsOkButton = document.getElementById('emission-options-ok-button');
-  emissionOptionsCancelButton = document.getElementById('emission-options-cancel-button');
-  particleFunctionsDialog = document.getElementById('particle-functions-dialog');
+  emissionOptionsJsonEditor = document.getElementById(
+    'emission-options-json-editor'
+  );
+  emissionOptionsOkButton = document.getElementById(
+    'emission-options-ok-button'
+  );
+  emissionOptionsCancelButton = document.getElementById(
+    'emission-options-cancel-button'
+  );
+  particleFunctionsDialog = document.getElementById(
+    'particle-functions-dialog'
+  );
   particleFunctionsTextareas = {
     position: document.getElementById('particle-fn-position'),
     speed: document.getElementById('particle-fn-speed'),
@@ -692,18 +797,36 @@ function initialiseEditor() {
     rotation: document.getElementById('particle-fn-rotation-enabled'),
     lifespan: document.getElementById('particle-fn-lifespan-enabled'),
   };
-  particleFunctionsOkButton = document.getElementById('particle-functions-ok-button');
-  particleFunctionsCancelButton = document.getElementById('particle-functions-cancel-button');
-  particleFunctionsStatusBar = document.getElementById('particle-functions-status-bar');
-  particleFunctionsStatusItem = document.getElementById('particle-functions-status-item');
+  particleFunctionsOkButton = document.getElementById(
+    'particle-functions-ok-button'
+  );
+  particleFunctionsCancelButton = document.getElementById(
+    'particle-functions-cancel-button'
+  );
+  particleFunctionsStatusBar = document.getElementById(
+    'particle-functions-status-bar'
+  );
+  particleFunctionsStatusItem = document.getElementById(
+    'particle-functions-status-item'
+  );
   emissionControlDialog = document.getElementById('emission-control-dialog');
   emissionControlTextarea = document.getElementById('emission-control-code');
   emissionControlCheckbox = document.getElementById('emission-control-enabled');
-  emissionControlOkButton = document.getElementById('emission-control-ok-button');
-  emissionControlCancelButton = document.getElementById('emission-control-cancel-button');
-  emissionControlStatusBar = document.getElementById('emission-control-status-bar');
-  emissionControlStatusItem = document.getElementById('emission-control-status-item');
-  particleLifecycleDialog = document.getElementById('particle-lifecycle-dialog');
+  emissionControlOkButton = document.getElementById(
+    'emission-control-ok-button'
+  );
+  emissionControlCancelButton = document.getElementById(
+    'emission-control-cancel-button'
+  );
+  emissionControlStatusBar = document.getElementById(
+    'emission-control-status-bar'
+  );
+  emissionControlStatusItem = document.getElementById(
+    'emission-control-status-item'
+  );
+  particleLifecycleDialog = document.getElementById(
+    'particle-lifecycle-dialog'
+  );
   particleLifecycleTextareas = {
     update: document.getElementById('particle-lifecycle-update'),
     preDraw: document.getElementById('particle-lifecycle-predraw'),
@@ -714,28 +837,70 @@ function initialiseEditor() {
     preDraw: document.getElementById('particle-lifecycle-predraw-enabled'),
     postDraw: document.getElementById('particle-lifecycle-postdraw-enabled'),
   };
-  particleLifecycleOkButton = document.getElementById('particle-lifecycle-ok-button');
-  particleLifecycleCancelButton = document.getElementById('particle-lifecycle-cancel-button');
-  particleLifecycleStatusBar = document.getElementById('particle-lifecycle-status-bar');
-  particleLifecycleStatusItem = document.getElementById('particle-lifecycle-status-item');
-  customForceParamsDialog = document.getElementById('custom-force-params-dialog');
-  customForceParamsJsonEditor = document.getElementById('custom-force-params-json-editor');
-  customForceParamsOkButton = document.getElementById('custom-force-params-ok-button');
-  customForceParamsCancelButton = document.getElementById('custom-force-params-cancel-button');
-  customForceFunctionDialog = document.getElementById('custom-force-function-dialog');
-  customForceFunctionTextarea = document.getElementById('custom-force-function-code');
-  customForceFunctionCheckbox = document.getElementById('custom-force-function-enabled');
-  customForceFunctionOkButton = document.getElementById('custom-force-function-ok-button');
-  customForceFunctionCancelButton = document.getElementById('custom-force-function-cancel-button');
-  customForceFunctionStatusBar = document.getElementById('custom-force-function-status-bar');
-  customForceFunctionStatusItem = document.getElementById('custom-force-function-status-item');
-  newEmitterContextMenuItem = document.getElementById('new-emitter-context-menu-item');
-  newAttractorContextMenuItem = document.getElementById('new-attractor-context-menu-item');
-  newForceFieldContextMenuItem = document.getElementById('new-forcefield-context-menu-item');
-  newColliderContextMenuItem = document.getElementById('new-collider-context-menu-item');
-  newSinkContextMenuItem = document.getElementById('new-sink-context-menu-item');
+  particleLifecycleOkButton = document.getElementById(
+    'particle-lifecycle-ok-button'
+  );
+  particleLifecycleCancelButton = document.getElementById(
+    'particle-lifecycle-cancel-button'
+  );
+  particleLifecycleStatusBar = document.getElementById(
+    'particle-lifecycle-status-bar'
+  );
+  particleLifecycleStatusItem = document.getElementById(
+    'particle-lifecycle-status-item'
+  );
+  customForceParamsDialog = document.getElementById(
+    'custom-force-params-dialog'
+  );
+  customForceParamsJsonEditor = document.getElementById(
+    'custom-force-params-json-editor'
+  );
+  customForceParamsOkButton = document.getElementById(
+    'custom-force-params-ok-button'
+  );
+  customForceParamsCancelButton = document.getElementById(
+    'custom-force-params-cancel-button'
+  );
+  customForceFunctionDialog = document.getElementById(
+    'custom-force-function-dialog'
+  );
+  customForceFunctionTextarea = document.getElementById(
+    'custom-force-function-code'
+  );
+  customForceFunctionCheckbox = document.getElementById(
+    'custom-force-function-enabled'
+  );
+  customForceFunctionOkButton = document.getElementById(
+    'custom-force-function-ok-button'
+  );
+  customForceFunctionCancelButton = document.getElementById(
+    'custom-force-function-cancel-button'
+  );
+  customForceFunctionStatusBar = document.getElementById(
+    'custom-force-function-status-bar'
+  );
+  customForceFunctionStatusItem = document.getElementById(
+    'custom-force-function-status-item'
+  );
+  newEmitterContextMenuItem = document.getElementById(
+    'new-emitter-context-menu-item'
+  );
+  newAttractorContextMenuItem = document.getElementById(
+    'new-attractor-context-menu-item'
+  );
+  newForceFieldContextMenuItem = document.getElementById(
+    'new-forcefield-context-menu-item'
+  );
+  newColliderContextMenuItem = document.getElementById(
+    'new-collider-context-menu-item'
+  );
+  newSinkContextMenuItem = document.getElementById(
+    'new-sink-context-menu-item'
+  );
   deleteContextMenuItem = document.getElementById('delete-context-menu-item');
-  loadImageContextMenuItem = document.getElementById('load-image-context-menu-item');
+  loadImageContextMenuItem = document.getElementById(
+    'load-image-context-menu-item'
+  );
   namePrompt = document.getElementById('name-prompt');
   imageIdPrompt = document.getElementById('image-id-prompt');
   imageFileInput = document.getElementById('image-file-input');
@@ -791,7 +956,8 @@ function setupCanvas() {
 function resizeCanvas() {
   const rect = content.getBoundingClientRect();
   canvas.width = Math.floor(rect.width) - editorState.settings.canvasMargin * 2;
-  canvas.height = Math.floor(rect.height) - editorState.settings.canvasMargin * 2;
+  canvas.height =
+    Math.floor(rect.height) - editorState.settings.canvasMargin * 2;
   canvas.style.width = `${canvas.width}px`;
   canvas.style.height = `${canvas.height}px`;
   canvas.style.top = `${editorState.settings.canvasMargin}px`;
@@ -825,10 +991,7 @@ function setupEventListeners() {
 
     // Handle dragging or resizing
     if (editorState.isDragging) {
-      handleMouseDrag(
-        editorState.mousePosition.x,
-        editorState.mousePosition.y
-      );
+      handleMouseDrag(editorState.mousePosition.x, editorState.mousePosition.y);
     } else if (editorState.isResizing) {
       handleMouseResize(
         editorState.mousePosition.x,
@@ -884,10 +1047,7 @@ function setupEventListeners() {
   // Mouse down for starting drag
   content.addEventListener('mousedown', e => {
     if (e.button !== 0) return; // Only left mouse button
-    handleMouseDown(
-      editorState.mousePosition.x,
-      editorState.mousePosition.y
-    );
+    handleMouseDown(editorState.mousePosition.x, editorState.mousePosition.y);
   });
 
   // Mouse up for ending drag
@@ -907,11 +1067,12 @@ function setupEventListeners() {
   document.addEventListener('keydown', e => {
     // Don't handle shortcuts if user is typing in an input or textarea
     const activeElement = document.activeElement;
-    if (activeElement && (
-      activeElement.tagName === 'TEXTAREA' ||
-      activeElement.tagName === 'INPUT' ||
-      activeElement.isContentEditable
-    )) {
+    if (
+      activeElement &&
+      (activeElement.tagName === 'TEXTAREA' ||
+        activeElement.tagName === 'INPUT' ||
+        activeElement.isContentEditable)
+    ) {
       return;
     }
 
@@ -998,11 +1159,17 @@ function setupEventListeners() {
 
   // Properties editor changes
   const debouncedHandlePropertyChange = debounce(handlePropertyChange, 300);
-  propertyEditor.addEventListener('keyvalue-change', debouncedHandlePropertyChange);
+  propertyEditor.addEventListener(
+    'keyvalue-change',
+    debouncedHandlePropertyChange
+  );
 
   // Settings editor changes
   const debouncedHandleSettingsChange = debounce(handleSettingsChange, 300);
-  settingsEditor.addEventListener('keyvalue-change', debouncedHandleSettingsChange);
+  settingsEditor.addEventListener(
+    'keyvalue-change',
+    debouncedHandleSettingsChange
+  );
 
   // Close settings dialog
   closeSettingsDialogButton?.addEventListener('click', e => {
@@ -1029,7 +1196,11 @@ function setupEventListeners() {
       }
 
       particleOptionsDialog?.close();
-      statusBar?.showMessage('Particle options updated successfully', 'success', 3000);
+      statusBar?.showMessage(
+        'Particle options updated successfully',
+        'success',
+        3000
+      );
     } catch (err) {
       console.error('Invalid JSON:', err);
       alert('Invalid JSON: ' + err.message);
@@ -1049,7 +1220,9 @@ function setupEventListeners() {
         const errors = [];
 
         // Try to compile each enabled function
-        for (const [key, textarea] of Object.entries(particleFunctionsTextareas)) {
+        for (const [key, textarea] of Object.entries(
+          particleFunctionsTextareas
+        )) {
           const checkbox = particleFunctionsCheckboxes[key];
           const enabled = checkbox?.checked || false;
           const code = textarea.value.trim();
@@ -1073,7 +1246,11 @@ function setupEventListeners() {
 
         if (errors.length > 0) {
           particleFunctionsStatusItem.value = `Validation errors: ${errors.join(', ')}`;
-          particleFunctionsStatusBar?.showMessage(`Validation errors: ${errors.join(', ')}`, 'error', 5000);
+          particleFunctionsStatusBar?.showMessage(
+            `Validation errors: ${errors.join(', ')}`,
+            'error',
+            5000
+          );
           return;
         }
 
@@ -1095,12 +1272,20 @@ function setupEventListeners() {
         updateTitle();
 
         particleFunctionsDialog?.close();
-        statusBar?.showMessage('Particle functions updated successfully', 'success', 3000);
+        statusBar?.showMessage(
+          'Particle functions updated successfully',
+          'success',
+          3000
+        );
       }
     } catch (err) {
       console.error('Error updating particle functions:', err);
       particleFunctionsStatusItem.value = `Error: ${err.message}`;
-      particleFunctionsStatusBar?.showMessage(`Error: ${err.message}`, 'error', 5000);
+      particleFunctionsStatusBar?.showMessage(
+        `Error: ${err.message}`,
+        'error',
+        5000
+      );
     }
   });
 
@@ -1118,7 +1303,11 @@ function setupEventListeners() {
 
         if (enabled && !code) {
           emissionControlStatusItem.value = 'Enabled but no code provided';
-          emissionControlStatusBar?.showMessage('Enabled but no code provided', 'error', 5000);
+          emissionControlStatusBar?.showMessage(
+            'Enabled but no code provided',
+            'error',
+            5000
+          );
           return;
         }
 
@@ -1130,7 +1319,11 @@ function setupEventListeners() {
             obj.customEmissionFunction = { enabled: true, code: code };
           } catch (err) {
             emissionControlStatusItem.value = `Validation error: ${err.message}`;
-            emissionControlStatusBar?.showMessage(`Validation error: ${err.message}`, 'error', 5000);
+            emissionControlStatusBar?.showMessage(
+              `Validation error: ${err.message}`,
+              'error',
+              5000
+            );
             return;
           }
         } else {
@@ -1154,7 +1347,11 @@ function setupEventListeners() {
     } catch (err) {
       console.error('Error saving emission control function:', err);
       emissionControlStatusItem.value = `Error: ${err.message}`;
-      emissionControlStatusBar?.showMessage(`Error: ${err.message}`, 'error', 5000);
+      emissionControlStatusBar?.showMessage(
+        `Error: ${err.message}`,
+        'error',
+        5000
+      );
     }
   });
 
@@ -1171,7 +1368,9 @@ function setupEventListeners() {
         const errors = [];
 
         // Try to compile each enabled function
-        for (const [key, textarea] of Object.entries(particleLifecycleTextareas)) {
+        for (const [key, textarea] of Object.entries(
+          particleLifecycleTextareas
+        )) {
           const checkbox = particleLifecycleCheckboxes[key];
           const enabled = checkbox?.checked || false;
           const code = textarea.value.trim();
@@ -1200,7 +1399,11 @@ function setupEventListeners() {
 
         if (errors.length > 0) {
           particleLifecycleStatusItem.value = `Validation errors: ${errors.join(', ')}`;
-          particleLifecycleStatusBar?.showMessage(`Validation errors: ${errors.join(', ')}`, 'error', 5000);
+          particleLifecycleStatusBar?.showMessage(
+            `Validation errors: ${errors.join(', ')}`,
+            'error',
+            5000
+          );
           return;
         }
 
@@ -1223,7 +1426,11 @@ function setupEventListeners() {
     } catch (err) {
       console.error('Error saving particle lifecycle hooks:', err);
       particleLifecycleStatusItem.value = `Error: ${err.message}`;
-      particleLifecycleStatusBar?.showMessage(`Error: ${err.message}`, 'error', 5000);
+      particleLifecycleStatusBar?.showMessage(
+        `Error: ${err.message}`,
+        'error',
+        5000
+      );
     }
   });
 
@@ -1241,7 +1448,11 @@ function setupEventListeners() {
 
         if (enabled && !code) {
           customForceFunctionStatusItem.value = 'Enabled but no code provided';
-          customForceFunctionStatusBar?.showMessage('Enabled but no code provided', 'error', 5000);
+          customForceFunctionStatusBar?.showMessage(
+            'Enabled but no code provided',
+            'error',
+            5000
+          );
           return;
         }
 
@@ -1253,7 +1464,11 @@ function setupEventListeners() {
             obj.customForceFunction = { enabled: true, code: code };
           } catch (err) {
             customForceFunctionStatusItem.value = `Validation error: ${err.message}`;
-            customForceFunctionStatusBar?.showMessage(`Validation error: ${err.message}`, 'error', 5000);
+            customForceFunctionStatusBar?.showMessage(
+              `Validation error: ${err.message}`,
+              'error',
+              5000
+            );
             return;
           }
         } else {
@@ -1277,7 +1492,11 @@ function setupEventListeners() {
     } catch (err) {
       console.error('Error saving custom force function:', err);
       customForceFunctionStatusItem.value = `Error: ${err.message}`;
-      customForceFunctionStatusBar?.showMessage(`Error: ${err.message}`, 'error', 5000);
+      customForceFunctionStatusBar?.showMessage(
+        `Error: ${err.message}`,
+        'error',
+        5000
+      );
     }
   });
 
@@ -1305,7 +1524,11 @@ function setupEventListeners() {
       }
 
       emissionOptionsDialog?.close();
-      statusBar?.showMessage('Emission options updated successfully', 'success', 3000);
+      statusBar?.showMessage(
+        'Emission options updated successfully',
+        'success',
+        3000
+      );
     } catch (err) {
       console.error('Invalid JSON:', err);
       alert('Invalid JSON: ' + err.message);
@@ -1339,7 +1562,11 @@ function setupEventListeners() {
       }
 
       customForceParamsDialog?.close();
-      statusBar?.showMessage('Custom force parameters updated successfully', 'success', 3000);
+      statusBar?.showMessage(
+        'Custom force parameters updated successfully',
+        'success',
+        3000
+      );
     } catch (err) {
       console.error('Invalid JSON:', err);
       alert('Invalid JSON: ' + err.message);
@@ -1351,7 +1578,7 @@ function setupEventListeners() {
   });
 
   // Image file input handler
-  imageFileInput?.addEventListener('change', async (e) => {
+  imageFileInput?.addEventListener('change', async e => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -1360,12 +1587,12 @@ function setupEventListeners() {
   });
 
   // Drag and drop for images
-  tree.addEventListener('dragover', (e) => {
+  tree.addEventListener('dragover', e => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
   });
 
-  tree.addEventListener('drop', async (e) => {
+  tree.addEventListener('drop', async e => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter(file =>
       file.type.startsWith('image/')
@@ -1431,11 +1658,15 @@ function handleContextMenuAction(action) {
   switch (action) {
     case 'new-emitter':
     case 'new-emitter-context':
-      createEmitter(action.endsWith('-context') ? editorState.mousePosition : undefined);
+      createEmitter(
+        action.endsWith('-context') ? editorState.mousePosition : undefined
+      );
       break;
     case 'new-attractor':
     case 'new-attractor-context':
-      createAttractor(action.endsWith('-context') ? editorState.mousePosition : undefined);
+      createAttractor(
+        action.endsWith('-context') ? editorState.mousePosition : undefined
+      );
       break;
     case 'new-forcefield':
     case 'new-forcefield-context':
@@ -1443,11 +1674,15 @@ function handleContextMenuAction(action) {
       break;
     case 'new-collider':
     case 'new-collider-context':
-      createCollider(action.endsWith('-context') ? editorState.mousePosition : undefined);
+      createCollider(
+        action.endsWith('-context') ? editorState.mousePosition : undefined
+      );
       break;
     case 'new-sink':
     case 'new-sink-context':
-      createSink(action.endsWith('-context') ? editorState.mousePosition : undefined);
+      createSink(
+        action.endsWith('-context') ? editorState.mousePosition : undefined
+      );
       break;
     case 'load-image-context':
       imageFileInput?.click();
@@ -1661,10 +1896,11 @@ function resizeAttractor(obj, edge, dx, dy) {
       // For diagonal directions, use average of both components
       delta = (Math.abs(dx) + Math.abs(dy)) / 2;
       // Determine sign based on whether we're moving outward or inward
-      const outward = (edge === 'ne' && (dx > 0 || dy < 0)) ||
-                      (edge === 'se' && (dx > 0 || dy > 0)) ||
-                      (edge === 'sw' && (dx < 0 || dy > 0)) ||
-                      (edge === 'nw' && (dx < 0 || dy < 0));
+      const outward =
+        (edge === 'ne' && (dx > 0 || dy < 0)) ||
+        (edge === 'se' && (dx > 0 || dy > 0)) ||
+        (edge === 'sw' && (dx < 0 || dy > 0)) ||
+        (edge === 'nw' && (dx < 0 || dy < 0));
       delta = outward ? delta : -delta;
       break;
   }
@@ -1698,10 +1934,11 @@ function resizeSink(obj, edge, dx, dy) {
       // For diagonal directions, use average of both components
       delta = (Math.abs(dx) + Math.abs(dy)) / 2;
       // Determine sign based on whether we're moving outward or inward
-      const outward = (edge === 'ne' && (dx > 0 || dy < 0)) ||
-                      (edge === 'se' && (dx > 0 || dy > 0)) ||
-                      (edge === 'sw' && (dx < 0 || dy > 0)) ||
-                      (edge === 'nw' && (dx < 0 || dy < 0));
+      const outward =
+        (edge === 'ne' && (dx > 0 || dy < 0)) ||
+        (edge === 'se' && (dx > 0 || dy > 0)) ||
+        (edge === 'sw' && (dx < 0 || dy > 0)) ||
+        (edge === 'nw' && (dx < 0 || dy < 0));
       delta = outward ? delta : -delta;
       break;
   }
@@ -1780,13 +2017,13 @@ function detectResizeEdge(objectId, x, y) {
 
         // Map angle to 8 directions (n, ne, e, se, s, sw, w, nw)
         if (angle >= -PI / 8 && angle < PI / 8) return 'e';
-        if (angle >= PI / 8 && angle < 3 * PI / 8) return 'se';
-        if (angle >= 3 * PI / 8 && angle < 5 * PI / 8) return 's';
-        if (angle >= 5 * PI / 8 && angle < 7 * PI / 8) return 'sw';
-        if (angle >= 7 * PI / 8 || angle < -7 * PI / 8) return 'w';
-        if (angle >= -7 * PI / 8 && angle < -5 * PI / 8) return 'nw';
-        if (angle >= -5 * PI / 8 && angle < -3 * PI / 8) return 'n';
-        if (angle >= -3 * PI / 8 && angle < -PI / 8) return 'ne';
+        if (angle >= PI / 8 && angle < (3 * PI) / 8) return 'se';
+        if (angle >= (3 * PI) / 8 && angle < (5 * PI) / 8) return 's';
+        if (angle >= (5 * PI) / 8 && angle < (7 * PI) / 8) return 'sw';
+        if (angle >= (7 * PI) / 8 || angle < (-7 * PI) / 8) return 'w';
+        if (angle >= (-7 * PI) / 8 && angle < (-5 * PI) / 8) return 'nw';
+        if (angle >= (-5 * PI) / 8 && angle < (-3 * PI) / 8) return 'n';
+        if (angle >= (-3 * PI) / 8 && angle < -PI / 8) return 'ne';
       }
       return null;
     }
@@ -1801,19 +2038,22 @@ function detectResizeEdge(objectId, x, y) {
 
         // Map angle to 8 directions (n, ne, e, se, s, sw, w, nw)
         if (angle >= -PI / 8 && angle < PI / 8) return 'e';
-        if (angle >= PI / 8 && angle < 3 * PI / 8) return 'se';
-        if (angle >= 3 * PI / 8 && angle < 5 * PI / 8) return 's';
-        if (angle >= 5 * PI / 8 && angle < 7 * PI / 8) return 'sw';
-        if (angle >= 7 * PI / 8 || angle < -7 * PI / 8) return 'w';
-        if (angle >= -7 * PI / 8 && angle < -5 * PI / 8) return 'nw';
-        if (angle >= -5 * PI / 8 && angle < -3 * PI / 8) return 'n';
-        if (angle >= -3 * PI / 8 && angle < -PI / 8) return 'ne';
+        if (angle >= PI / 8 && angle < (3 * PI) / 8) return 'se';
+        if (angle >= (3 * PI) / 8 && angle < (5 * PI) / 8) return 's';
+        if (angle >= (5 * PI) / 8 && angle < (7 * PI) / 8) return 'sw';
+        if (angle >= (7 * PI) / 8 || angle < (-7 * PI) / 8) return 'w';
+        if (angle >= (-7 * PI) / 8 && angle < (-5 * PI) / 8) return 'nw';
+        if (angle >= (-5 * PI) / 8 && angle < (-3 * PI) / 8) return 'n';
+        if (angle >= (-3 * PI) / 8 && angle < -PI / 8) return 'ne';
       }
       return null;
     }
     case 'collider': {
       if (obj.geometry.type === 'rectangle') {
-        const halfSize = { x: obj.geometry.size.x / 2, y: obj.geometry.size.y / 2 };
+        const halfSize = {
+          x: obj.geometry.size.x / 2,
+          y: obj.geometry.size.y / 2,
+        };
         const bounds = {
           left: obj.geometry.position.x - halfSize.x,
           right: obj.geometry.position.x + halfSize.x,
@@ -1832,13 +2072,13 @@ function detectResizeEdge(objectId, x, y) {
 
           // Map angle to 8 directions (n, ne, e, se, s, sw, w, nw)
           if (angle >= -PI / 8 && angle < PI / 8) return 'e';
-          if (angle >= PI / 8 && angle < 3 * PI / 8) return 'se';
-          if (angle >= 3 * PI / 8 && angle < 5 * PI / 8) return 's';
-          if (angle >= 5 * PI / 8 && angle < 7 * PI / 8) return 'sw';
-          if (angle >= 7 * PI / 8 || angle < -7 * PI / 8) return 'w';
-          if (angle >= -7 * PI / 8 && angle < -5 * PI / 8) return 'nw';
-          if (angle >= -5 * PI / 8 && angle < -3 * PI / 8) return 'n';
-          if (angle >= -3 * PI / 8 && angle < -PI / 8) return 'ne';
+          if (angle >= PI / 8 && angle < (3 * PI) / 8) return 'se';
+          if (angle >= (3 * PI) / 8 && angle < (5 * PI) / 8) return 's';
+          if (angle >= (5 * PI) / 8 && angle < (7 * PI) / 8) return 'sw';
+          if (angle >= (7 * PI) / 8 || angle < (-7 * PI) / 8) return 'w';
+          if (angle >= (-7 * PI) / 8 && angle < (-5 * PI) / 8) return 'nw';
+          if (angle >= (-5 * PI) / 8 && angle < (-3 * PI) / 8) return 'n';
+          if (angle >= (-3 * PI) / 8 && angle < -PI / 8) return 'ne';
         }
       }
       return null;
@@ -1854,8 +2094,10 @@ function detectRectangleEdge(x, y, bounds, threshold) {
   const nearTop = Math.abs(y - bounds.top) <= threshold;
   const nearBottom = Math.abs(y - bounds.bottom) <= threshold;
 
-  const inHorizontal = x >= bounds.left - threshold && x <= bounds.right + threshold;
-  const inVertical = y >= bounds.top - threshold && y <= bounds.bottom + threshold;
+  const inHorizontal =
+    x >= bounds.left - threshold && x <= bounds.right + threshold;
+  const inVertical =
+    y >= bounds.top - threshold && y <= bounds.bottom + threshold;
 
   // Check corners first
   if (nearTop && nearLeft && inHorizontal && inVertical) return 'nw';
@@ -1936,7 +2178,9 @@ function handleMouseUp() {
     const obj = findObjectById(editorState.resizeObjectId);
     if (obj) {
       const currentData = getObjectResizeData(obj);
-      const changed = JSON.stringify(currentData) !== JSON.stringify(editorState.resizeStartObjectData);
+      const changed =
+        JSON.stringify(currentData) !==
+        JSON.stringify(editorState.resizeStartObjectData);
 
       if (changed) {
         // Only take snapshot if object was actually resized
@@ -2022,7 +2266,10 @@ function handlePropertyChange(event) {
     // Unflatten the editor value back to the original structure
     const obj = findObjectById(propertyEditor.objectId);
     if (obj) {
-      const unflattenedValue = unflattenObjectFromEditor(propertyEditor.value, obj.type);
+      const unflattenedValue = unflattenObjectFromEditor(
+        propertyEditor.value,
+        obj.type
+      );
       updateObjectProperties(
         propertyEditor.objectId,
         unflattenedValue,
@@ -2057,7 +2304,7 @@ function newProject() {
   };
 
   editorState.projectName = 'Untitled';
-  editorState.particleSystem = new window.ParticleSystem();
+  editorState.particleSystem = new ParticleSystem();
   editorState.objects = {
     emitters: [],
     attractors: [],
@@ -2147,7 +2394,7 @@ function serializeProject() {
     serializedImages[id] = {
       id: img.id,
       filename: img.filename,
-      dataUrl: img.dataUrl
+      dataUrl: img.dataUrl,
     };
   }
 
@@ -2192,7 +2439,7 @@ function loadProjectData(data) {
         filename: imgData.filename,
         dataUrl: imgData.dataUrl,
         element: img,
-        loaded: true
+        loaded: true,
       };
     }
   }
@@ -2217,7 +2464,7 @@ function loadProjectData(data) {
 }
 
 function recreateParticleSystem() {
-  editorState.particleSystem = new window.ParticleSystem();
+  editorState.particleSystem = new ParticleSystem();
 
   // Recreate emitters
   for (const def of editorState.objects.emitters) {
@@ -2259,7 +2506,10 @@ function recreateParticleSystem() {
             const fn = new Function('n', code);
             clonedOptions.particles[key] = fn;
           } catch (err) {
-            console.error(`Error creating ${key} function for emitter ${def.id}:`, err);
+            console.error(
+              `Error creating ${key} function for emitter ${def.id}:`,
+              err
+            );
           }
         }
       }
@@ -2285,7 +2535,10 @@ function recreateParticleSystem() {
           clonedOptions.emission.f = fn;
           clonedOptions.emission.type = 'custom';
         } catch (err) {
-          console.error(`Error creating emission control function for emitter ${def.id}:`, err);
+          console.error(
+            `Error creating emission control function for emitter ${def.id}:`,
+            err
+          );
         }
       }
     }
@@ -2318,7 +2571,10 @@ function recreateParticleSystem() {
             }
             clonedOptions.particles.options[key] = fn;
           } catch (err) {
-            console.error(`Error creating ${key} lifecycle hook for emitter ${def.id}:`, err);
+            console.error(
+              `Error creating ${key} lifecycle hook for emitter ${def.id}:`,
+              err
+            );
           }
         }
       }
@@ -2328,14 +2584,15 @@ function recreateParticleSystem() {
     if (clonedOptions?.particles?.style?.style === 'image') {
       const imageId = clonedOptions.particles.style.image;
       if (typeof imageId === 'string' && editorState.images[imageId]) {
-        clonedOptions.particles.style.image = editorState.images[imageId].element;
+        clonedOptions.particles.style.image =
+          editorState.images[imageId].element;
       } else if (typeof imageId === 'string') {
         console.warn(`Image ID "${imageId}" not found in loaded images`);
         // Keep the string ID, but particle won't render properly
       }
     }
 
-    const emitter = new window.Emitter(
+    const emitter = new Emitter(
       def.position,
       def.size,
       def.lifespan,
@@ -2347,7 +2604,7 @@ function recreateParticleSystem() {
 
   // Recreate attractors
   for (const def of editorState.objects.attractors) {
-    const attractor = new window.Attractor(
+    const attractor = new Attractor(
       def.position,
       def.range,
       def.force,
@@ -2361,9 +2618,10 @@ function recreateParticleSystem() {
   // Recreate force fields
   for (const def of editorState.objects.forceFields) {
     // Convert customForce 'none' to undefined for the constructor
-    const customForce = def.customForce === 'none' ? undefined : def.customForce;
+    const customForce =
+      def.customForce === 'none' ? undefined : def.customForce;
 
-    const forceField = new window.ForceField(
+    const forceField = new ForceField(
       def.force,
       def.lifespan,
       customForce,
@@ -2390,7 +2648,10 @@ function recreateParticleSystem() {
           const fn = new Function('system', 'forceField', 'dt', code);
           forceField.customForce = fn;
         } catch (err) {
-          console.error(`Error creating custom force function for forcefield ${def.id}:`, err);
+          console.error(
+            `Error creating custom force function for forcefield ${def.id}:`,
+            err
+          );
         }
       }
     }
@@ -2400,7 +2661,7 @@ function recreateParticleSystem() {
 
   // Recreate colliders
   for (const def of editorState.objects.colliders) {
-    const collider = new window.Collider(
+    const collider = new Collider(
       def.geometry,
       def.restitution,
       def.friction,
@@ -2412,7 +2673,7 @@ function recreateParticleSystem() {
 
   // Recreate sinks
   for (const def of editorState.objects.sinks) {
-    const sink = new window.Sink(
+    const sink = new Sink(
       def.position,
       def.range,
       def.strength,
@@ -2440,7 +2701,7 @@ function createEmitter(position) {
     def.position = { x: position.x, y: position.y };
   }
 
-  const emitter = new window.Emitter(
+  const emitter = new Emitter(
     def.position,
     def.size,
     def.lifespan,
@@ -2471,7 +2732,7 @@ function createAttractor(position) {
     def.position = { x: position.x, y: position.y };
   }
 
-  const attractor = new window.Attractor(
+  const attractor = new Attractor(
     def.position,
     def.range,
     def.force,
@@ -2501,7 +2762,7 @@ function createForceField() {
   // Convert customForce 'none' to undefined for the constructor
   const customForce = def.customForce === 'none' ? undefined : def.customForce;
 
-  const forceField = new window.ForceField(
+  const forceField = new ForceField(
     def.force,
     def.lifespan,
     customForce,
@@ -2532,7 +2793,7 @@ function createCollider(position) {
     def.geometry.position = { x: position.x, y: position.y };
   }
 
-  const collider = new window.Collider(
+  const collider = new Collider(
     def.geometry,
     def.restitution,
     def.friction,
@@ -2563,7 +2824,7 @@ function createSink(position) {
     def.position = { x: position.x, y: position.y };
   }
 
-  const sink = new window.Sink(
+  const sink = new Sink(
     def.position,
     def.range,
     def.strength,
@@ -2592,41 +2853,36 @@ function deleteObject(id) {
   // Remove from particle system
   switch (obj.type) {
     case 'emitter':
-      editorState.particleSystem.emitters = editorState.particleSystem.emitters.filter(
-        e => e._id !== id
-      );
+      editorState.particleSystem.emitters =
+        editorState.particleSystem.emitters.filter(e => e._id !== id);
       editorState.objects.emitters = editorState.objects.emitters.filter(
         e => e.id !== id
       );
       break;
     case 'attractor':
-      editorState.particleSystem.attractors = editorState.particleSystem.attractors.filter(
-        a => a.id !== id
-      );
+      editorState.particleSystem.attractors =
+        editorState.particleSystem.attractors.filter(a => a.id !== id);
       editorState.objects.attractors = editorState.objects.attractors.filter(
         a => a.id !== id
       );
       break;
     case 'forcefield':
-      editorState.particleSystem.forceFields = editorState.particleSystem.forceFields.filter(
-        f => f.id !== id
-      );
+      editorState.particleSystem.forceFields =
+        editorState.particleSystem.forceFields.filter(f => f.id !== id);
       editorState.objects.forceFields = editorState.objects.forceFields.filter(
         f => f.id !== id
       );
       break;
     case 'collider':
-      editorState.particleSystem.colliders = editorState.particleSystem.colliders.filter(
-        c => c.id !== id
-      );
+      editorState.particleSystem.colliders =
+        editorState.particleSystem.colliders.filter(c => c.id !== id);
       editorState.objects.colliders = editorState.objects.colliders.filter(
         c => c.id !== id
       );
       break;
     case 'sink':
-      editorState.particleSystem.sinks = editorState.particleSystem.sinks.filter(
-        s => s.id !== id
-      );
+      editorState.particleSystem.sinks =
+        editorState.particleSystem.sinks.filter(s => s.id !== id);
       editorState.objects.sinks = editorState.objects.sinks.filter(
         s => s.id !== id
       );
@@ -2658,7 +2914,7 @@ async function loadImageFile(file) {
   const reader = new FileReader();
 
   return new Promise((resolve, reject) => {
-    reader.onload = async (e) => {
+    reader.onload = async e => {
       const dataUrl = e.target.result;
 
       // Create image element
@@ -2680,7 +2936,9 @@ async function loadImageFile(file) {
 
         // Check for duplicate ID
         if (editorState.images[imageId]) {
-          alert(`An image with ID "${imageId}" already exists. Please choose a different ID.`);
+          alert(
+            `An image with ID "${imageId}" already exists. Please choose a different ID.`
+          );
           resolve();
           return;
         }
@@ -2691,7 +2949,7 @@ async function loadImageFile(file) {
           filename: file.name,
           dataUrl: dataUrl,
           element: img,
-          loaded: true
+          loaded: true,
         };
 
         takeSnapshot(`Load image: ${imageId}`);
@@ -2731,7 +2989,9 @@ function deleteImage(imageId) {
 
   if (usedInEmitters.length > 0) {
     const emitterIds = usedInEmitters.map(e => e.id).join(', ');
-    if (!confirm(`This image is used in emitters: ${emitterIds}. Delete anyway?`)) {
+    if (
+      !confirm(`This image is used in emitters: ${emitterIds}. Delete anyway?`)
+    ) {
       return;
     }
   }
@@ -2774,9 +3034,11 @@ function updateParticleSystemObject(psObject, def) {
   switch (def.type) {
     case 'emitter':
       // Recreate emitter with new values
-      const emitterIndex = editorState.particleSystem.emitters.findIndex(e => e._id === def.id);
+      const emitterIndex = editorState.particleSystem.emitters.findIndex(
+        e => e._id === def.id
+      );
       if (emitterIndex >= 0) {
-        const newEmitter = new window.Emitter(
+        const newEmitter = new Emitter(
           def.position,
           def.size,
           def.lifespan,
@@ -2805,7 +3067,8 @@ function updateParticleSystemObject(psObject, def) {
       psObject.force = def.force;
       psObject.lifespan = def.lifespan;
       // Convert customForce 'none' to undefined
-      psObject.customForce = def.customForce === 'none' ? undefined : def.customForce;
+      psObject.customForce =
+        def.customForce === 'none' ? undefined : def.customForce;
       psObject.customForceParams = def.customForceParams;
       break;
     case 'collider':
@@ -2829,21 +3092,26 @@ function takeSnapshot(action) {
       id: img.id,
       filename: img.filename,
       dataUrl: img.dataUrl,
-      loaded: img.loaded
+      loaded: img.loaded,
     };
   }
 
   const snapshot = {
     action,
     date: new Date(),
-    state: JSON.parse(JSON.stringify({
-      objects: editorState.objects,
-    })),
+    state: JSON.parse(
+      JSON.stringify({
+        objects: editorState.objects,
+      })
+    ),
     images: serializedImages,
   };
 
   // Remove any snapshots after current index
-  if (editorState.history.currentIndex < editorState.history.snapshots.length - 1) {
+  if (
+    editorState.history.currentIndex <
+    editorState.history.snapshots.length - 1
+  ) {
     editorState.history.snapshots = editorState.history.snapshots.slice(
       0,
       editorState.history.currentIndex + 1
@@ -2861,7 +3129,9 @@ function undo() {
   if (!canUndo()) return;
 
   editorState.history.currentIndex--;
-  restoreSnapshot(editorState.history.snapshots[editorState.history.currentIndex]);
+  restoreSnapshot(
+    editorState.history.snapshots[editorState.history.currentIndex]
+  );
   updateHistoryView();
   updateToolbarButtons();
 
@@ -2872,7 +3142,9 @@ function redo() {
   if (!canRedo()) return;
 
   editorState.history.currentIndex++;
-  restoreSnapshot(editorState.history.snapshots[editorState.history.currentIndex]);
+  restoreSnapshot(
+    editorState.history.snapshots[editorState.history.currentIndex]
+  );
   updateHistoryView();
   updateToolbarButtons();
 
@@ -2884,7 +3156,9 @@ function canUndo() {
 }
 
 function canRedo() {
-  return editorState.history.currentIndex < editorState.history.snapshots.length - 1;
+  return (
+    editorState.history.currentIndex < editorState.history.snapshots.length - 1
+  );
 }
 
 function jumpToHistoryIndex(index) {
@@ -2913,7 +3187,7 @@ function restoreSnapshot(snapshot) {
         filename: imgData.filename,
         dataUrl: imgData.dataUrl,
         element: img,
-        loaded: imgData.loaded
+        loaded: imgData.loaded,
       };
     }
   }
@@ -2985,7 +3259,10 @@ function updateStatusBar() {
   if (selectedStatusBarItem) {
     if (editorState.selectedObjectId) {
       const obj = findObjectById(editorState.selectedObjectId);
-      selectedStatusBarItem.setAttribute('value', obj ? `${obj.type} (${obj.id})` : 'Unknown');
+      selectedStatusBarItem.setAttribute(
+        'value',
+        obj ? `${obj.type} (${obj.id})` : 'Unknown'
+      );
     } else {
       selectedStatusBarItem.setAttribute('value', 'None');
     }
@@ -3001,7 +3278,10 @@ function updateStatusBar() {
 
   // Update FPS
   if (fpsStatusBarItem) {
-    fpsStatusBarItem.setAttribute('value', Math.round(editorState.fps).toString());
+    fpsStatusBarItem.setAttribute(
+      'value',
+      Math.round(editorState.fps).toString()
+    );
   }
 }
 
@@ -3157,29 +3437,29 @@ function updatePropertyEditor() {
 
       // Add button functions for emitters to open particle and emission options editors
       if (obj.type === 'emitter') {
-        flattenedValue.editParticleOptions = function() {
+        flattenedValue.editParticleOptions = function () {
           openParticleOptionsDialog(obj);
         };
-        flattenedValue.editParticleFunctions = function() {
+        flattenedValue.editParticleFunctions = function () {
           openParticleFunctionsDialog(obj);
         };
-        flattenedValue.editEmissionOptions = function() {
+        flattenedValue.editEmissionOptions = function () {
           openEmissionOptionsDialog(obj);
         };
-        flattenedValue.editEmissionControl = function() {
+        flattenedValue.editEmissionControl = function () {
           openEmissionControlDialog(obj);
         };
-        flattenedValue.editParticleLifecycle = function() {
+        flattenedValue.editParticleLifecycle = function () {
           openParticleLifecycleDialog(obj);
         };
       }
 
       // Add button function for forcefields to open custom force params editor
       if (obj.type === 'forcefield') {
-        flattenedValue.editCustomForceParams = function() {
+        flattenedValue.editCustomForceParams = function () {
           openCustomForceParamsDialog(obj);
         };
-        flattenedValue.editCustomForceFunction = function() {
+        flattenedValue.editCustomForceFunction = function () {
           openCustomForceFunctionDialog(obj);
         };
       }
@@ -3277,7 +3557,9 @@ function updateToolbarButtons() {
   if (editorState.particleSystem) {
     toggleElementsToolbarButton?.removeAttribute('disabled');
     if (toggleElementsToolbarButton) {
-      toggleElementsToolbarButton.label = editorState.showElements ? 'Hide Elements' : 'Show Elements';
+      toggleElementsToolbarButton.label = editorState.showElements
+        ? 'Hide Elements'
+        : 'Show Elements';
     }
   } else {
     toggleElementsToolbarButton?.setAttribute('disabled', '');
@@ -3382,7 +3664,11 @@ function render() {
     context.font = '16px sans-serif';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText('No particle system loaded', canvas.width / 2, canvas.height / 2);
+    context.fillText(
+      'No particle system loaded',
+      canvas.width / 2,
+      canvas.height / 2
+    );
     return;
   }
 
@@ -3395,7 +3681,7 @@ function render() {
         ...styles.grid,
         grid: {
           cellSize: editorState.settings.gridSize,
-        }
+        },
       }
     );
   }
@@ -3410,25 +3696,37 @@ function render() {
     // Draw emitters
     for (const def of editorState.objects.emitters) {
       const isSelected = def.id === editorState.selectedObjectId;
-      drawEmitter(def, isSelected ? styles.emitterSelected : styles.emitterUnselected);
+      drawEmitter(
+        def,
+        isSelected ? styles.emitterSelected : styles.emitterUnselected
+      );
     }
 
     // Draw attractors
     for (const def of editorState.objects.attractors) {
       const isSelected = def.id === editorState.selectedObjectId;
-      drawAttractor(def, isSelected ? styles.attractorSelected : styles.attractorUnselected);
+      drawAttractor(
+        def,
+        isSelected ? styles.attractorSelected : styles.attractorUnselected
+      );
     }
 
     // Draw force fields
     for (const def of editorState.objects.forceFields) {
       const isSelected = def.id === editorState.selectedObjectId;
-      drawForceField(def, isSelected ? styles.forcefieldSelected : styles.forcefieldUnselected);
+      drawForceField(
+        def,
+        isSelected ? styles.forcefieldSelected : styles.forcefieldUnselected
+      );
     }
 
     // Draw colliders
     for (const def of editorState.objects.colliders) {
       const isSelected = def.id === editorState.selectedObjectId;
-      drawCollider(def, isSelected ? styles.colliderSelected : styles.colliderUnselected);
+      drawCollider(
+        def,
+        isSelected ? styles.colliderSelected : styles.colliderUnselected
+      );
     }
 
     // Draw sinks
@@ -3443,7 +3741,10 @@ function render() {
 }
 
 function drawEmitter(def, style) {
-  drawRectangle(def.position, def.size, { ...style, rectangleAnchor: 'center' });
+  drawRectangle(def.position, def.size, {
+    ...style,
+    rectangleAnchor: 'center',
+  });
 
   // Draw label
   Debug.marker(
@@ -3522,7 +3823,10 @@ function drawCollider(def, style) {
       drawCircle(def.geometry.position, def.geometry.radius, style);
       break;
     case 'rectangle':
-      drawRectangle(def.geometry.position, def.geometry.size, { ...style, rectangleAnchor: 'center' });
+      drawRectangle(def.geometry.position, def.geometry.size, {
+        ...style,
+        rectangleAnchor: 'center',
+      });
       break;
     case 'polygon':
       // Draw polygon
@@ -3727,7 +4031,10 @@ function findObjectAtPosition(x, y) {
   // Check colliders
   for (const def of editorState.objects.colliders) {
     if (def.geometry.type === 'rectangle') {
-      const halfSize = { x: def.geometry.size.x / 2, y: def.geometry.size.y / 2 };
+      const halfSize = {
+        x: def.geometry.size.x / 2,
+        y: def.geometry.size.y / 2,
+      };
       if (
         x >= def.geometry.position.x - halfSize.x &&
         x <= def.geometry.position.x + halfSize.x &&
@@ -3818,7 +4125,7 @@ function openParticleOptionsDialog(emitter) {
   particleOptionsEditor = new JSONEditor(particleOptionsJsonEditor, {
     mode: 'code',
     modes: ['code', 'tree'],
-    indentation: 2
+    indentation: 2,
   });
   particleOptionsEditor.set(particleOptions);
 
@@ -3829,14 +4136,17 @@ function openEmissionOptionsDialog(emitter) {
   if (!emitter || !emissionOptionsDialog || !emissionOptionsJsonEditor) return;
 
   // Get the current emission options
-  const emissionOptions = emitter.options?.emission || { type: 'rate', rate: 10 };
+  const emissionOptions = emitter.options?.emission || {
+    type: 'rate',
+    rate: 10,
+  };
 
   // Clear any existing editor and create new JSONEditor instance
   emissionOptionsJsonEditor.innerHTML = '';
   emissionOptionsEditor = new JSONEditor(emissionOptionsJsonEditor, {
     mode: 'code',
     modes: ['code', 'tree'],
-    indentation: 2
+    indentation: 2,
   });
   emissionOptionsEditor.set(emissionOptions);
 
@@ -3845,7 +4155,8 @@ function openEmissionOptionsDialog(emitter) {
 }
 
 function openParticleFunctionsDialog(emitter) {
-  if (!emitter || !particleFunctionsDialog || !particleFunctionsTextareas) return;
+  if (!emitter || !particleFunctionsDialog || !particleFunctionsTextareas)
+    return;
 
   // Clear any previous status message
   if (particleFunctionsStatusItem) {
@@ -3970,7 +4281,9 @@ function recreateEmitterWithFunctions(emitterObj) {
       clonedOptions.particles.options = {};
     }
 
-    for (const [key, fnData] of Object.entries(emitterObj.customLifecycleHooks)) {
+    for (const [key, fnData] of Object.entries(
+      emitterObj.customLifecycleHooks
+    )) {
       let code = null;
       let enabled = false;
 
@@ -4007,9 +4320,11 @@ function recreateEmitterWithFunctions(emitterObj) {
   }
 
   // Recreate the emitter with converted options
-  const emitterIndex = editorState.particleSystem.emitters.findIndex(e => e._id === emitterObj.id);
+  const emitterIndex = editorState.particleSystem.emitters.findIndex(
+    e => e._id === emitterObj.id
+  );
   if (emitterIndex >= 0) {
-    const newEmitter = new window.Emitter(
+    const newEmitter = new Emitter(
       emitterObj.position,
       emitterObj.size,
       emitterObj.lifespan,
@@ -4056,7 +4371,8 @@ function recreateForceFieldWithFunction(forcefieldObj) {
 }
 
 function openCustomForceParamsDialog(forcefield) {
-  if (!forcefield || !customForceParamsDialog || !customForceParamsJsonEditor) return;
+  if (!forcefield || !customForceParamsDialog || !customForceParamsJsonEditor)
+    return;
 
   // Get the current custom force parameters
   const customForceParams = forcefield.customForceParams || {};
@@ -4066,7 +4382,7 @@ function openCustomForceParamsDialog(forcefield) {
   customForceParamsEditor = new JSONEditor(customForceParamsJsonEditor, {
     mode: 'code',
     modes: ['code', 'tree'],
-    indentation: 2
+    indentation: 2,
   });
   customForceParamsEditor.set(customForceParams);
 
@@ -4112,7 +4428,8 @@ function openEmissionControlDialog(emitter) {
 }
 
 function openParticleLifecycleDialog(emitter) {
-  if (!emitter || !particleLifecycleDialog || !particleLifecycleTextareas) return;
+  if (!emitter || !particleLifecycleDialog || !particleLifecycleTextareas)
+    return;
 
   // Clear any previous status message
   if (particleLifecycleStatusItem) {
@@ -4125,8 +4442,10 @@ function openParticleLifecycleDialog(emitter) {
   // Default function templates
   const templates = {
     update: '// Custom update logic\n// this.velocity.x += 10 * dt;',
-    preDraw: '// Set context state\n// context.shadowColor = "black";\n// context.shadowBlur = 10;',
-    postDraw: '// Draw additional effects\n// context.fillStyle = "white";\n// context.fillText("!", 0, 0);',
+    preDraw:
+      '// Set context state\n// context.shadowColor = "black";\n// context.shadowBlur = 10;',
+    postDraw:
+      '// Draw additional effects\n// context.fillStyle = "white";\n// context.fillText("!", 0, 0);',
   };
 
   // Populate textareas and checkboxes
@@ -4162,7 +4481,8 @@ function openParticleLifecycleDialog(emitter) {
 }
 
 function openCustomForceFunctionDialog(forcefield) {
-  if (!forcefield || !customForceFunctionDialog || !customForceFunctionTextarea) return;
+  if (!forcefield || !customForceFunctionDialog || !customForceFunctionTextarea)
+    return;
 
   // Clear any previous status message
   if (customForceFunctionStatusItem) {
@@ -4173,7 +4493,8 @@ function openCustomForceFunctionDialog(forcefield) {
   const fnData = forcefield.customForceFunction;
 
   // Default template
-  const template = '// Apply custom force to this particle\n// this.velocity.x += 10 * dt;\n// this.velocity.y += 10 * dt;';
+  const template =
+    '// Apply custom force to this particle\n// this.velocity.x += 10 * dt;\n// this.velocity.y += 10 * dt;';
 
   // Handle both old format (string) and new format (object)
   if (typeof fnData === 'string') {
