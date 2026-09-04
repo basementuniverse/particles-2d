@@ -33,7 +33,10 @@
   }
 
   /**
-   * Resolve a selector, element or array of either to an array of elements
+   * Resolve a selector, element, or list of either to an array of elements
+   *
+   * Accepts anything iterable, so a NodeList from querySelectorAll can be
+   * passed straight through.
    */
   function resolveElements(target, context) {
     if (!target) {
@@ -42,8 +45,8 @@
     if (typeof target === 'string') {
       return Array.from((context || document).querySelectorAll(target));
     }
-    if (Array.isArray(target)) {
-      return target.map(t => resolveElement(t, context)).filter(Boolean);
+    if (typeof target[Symbol.iterator] === 'function') {
+      return Array.from(target, t => resolveElement(t, context)).filter(Boolean);
     }
     return [target];
   }
