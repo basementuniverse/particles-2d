@@ -20,6 +20,8 @@ const editorState = {
   particleSystem: null,
   selectedObjectId: null,
   contextNodeId: null,
+  contextMenuPosition: { x: 0, y: 0 },
+  clipboard: null,
   canvasSize: { x: 0, y: 0 },
   mousePosition: { x: 0, y: 0 },
   isDragging: false,
@@ -1053,6 +1055,13 @@ function setupEventListeners() {
   document.addEventListener('context-menu-show', e => {
     const { componentContext } = e.detail;
 
+    // Take the position from the event rather than the tracked mouse
+    // position, which is only as fresh as the last mousemove over the canvas
+    editorState.contextMenuPosition = canvasPositionFromClient(
+      e.detail.x,
+      e.detail.y
+    );
+
     if (componentContext?.componentType === 'tree-view') {
       // Context menu shown from tree-view
       let node = null;
@@ -1063,14 +1072,12 @@ function setupEventListeners() {
       }
 
       editorState.contextNodeId = node?.id || null;
-      console.log(editorState.contextNodeId);
     } else {
-      // Context menu shown from canvas - check what's at mouse position
-      const hoveredObjectId = findObjectAtPosition(
-        editorState.mousePosition.x,
-        editorState.mousePosition.y
+      // Context menu shown from canvas - check what is under the click
+      editorState.contextNodeId = findObjectAtPosition(
+        editorState.contextMenuPosition.x,
+        editorState.contextMenuPosition.y
       );
-      editorState.contextNodeId = hoveredObjectId;
     }
 
     updateCommands();
@@ -1617,6 +1624,9 @@ function registerCommands() {
 
   const hasProject = () => !!editorState.particleSystem;
   const hasSelection = () => !!editorState.selectedObjectId;
+  const hasContextObject = () =>
+    !!editorState.contextNodeId && !!findObjectById(editorState.contextNodeId);
+  const hasClipboard = () => hasProject() && !!editorState.clipboard;
 
   Commands.registerAll([
     // --- Document ---
@@ -1643,6 +1653,7 @@ function registerCommands() {
     // --- History ---
     {
       id: 'undo',
+      label: 'Undo',
       elements: '#undo-toolbar-button',
       keys: ['Ctrl+Z'],
       group: 'History',
@@ -1651,11 +1662,57 @@ function registerCommands() {
     },
     {
       id: 'redo',
+      label: 'Redo',
       elements: '#redo-toolbar-button',
       keys: ['Ctrl+Shift+Z', 'Ctrl+Y'],
       group: 'History',
       enabled: () => History.canRedo(),
       run: () => History.redo(),
+    },
+
+    // --- Clipboard. The context menu twins act on the right-clicked object,
+    // and paste drops the copy at the click position ---
+    {
+      id: 'cut',
+      elements: '#cut-toolbar-button',
+      keys: ['Ctrl+X'],
+      group: 'Edit',
+      enabled: hasSelection,
+      run: () => cutObject(editorState.selectedObjectId),
+    },
+    {
+      id: 'cut-context',
+      elements: '#cut-context-menu-item',
+      enabled: hasContextObject,
+      run: () => cutObject(editorState.contextNodeId),
+    },
+    {
+      id: 'copy',
+      elements: '#copy-toolbar-button',
+      keys: ['Ctrl+C'],
+      group: 'Edit',
+      enabled: hasSelection,
+      run: () => copyObject(editorState.selectedObjectId),
+    },
+    {
+      id: 'copy-context',
+      elements: '#copy-context-menu-item',
+      enabled: hasContextObject,
+      run: () => copyObject(editorState.contextNodeId),
+    },
+    {
+      id: 'paste',
+      elements: '#paste-toolbar-button',
+      keys: ['Ctrl+V'],
+      group: 'Edit',
+      enabled: hasClipboard,
+      run: () => pasteObject(),
+    },
+    {
+      id: 'paste-context',
+      elements: '#paste-context-menu-item',
+      enabled: hasClipboard,
+      run: () => pasteObject(editorState.contextMenuPosition),
     },
 
     // --- The create menu itself; its items carry the individual commands ---
@@ -1678,10 +1735,7 @@ function registerCommands() {
     {
       id: 'delete-context',
       elements: '#delete-context-menu-item',
-      enabled: () => {
-        const obj = findObjectById(editorState.contextNodeId);
-        return !!editorState.contextNodeId && !!obj;
-      },
+      enabled: hasContextObject,
       run: () => {
         const obj = findObjectById(editorState.contextNodeId);
         if (obj?.type === 'image') {
@@ -1757,7 +1811,7 @@ function registerCommands() {
       id: `new-${type}-context`,
       elements: `#new-${type}-context-menu-item`,
       enabled: hasProject,
-      run: () => create(editorState.mousePosition),
+      run: () => create(editorState.contextMenuPosition),
     });
   }
 }
@@ -2588,155 +2642,283 @@ function recreateParticleSystem() {
 // Object creation
 // -----------------------------------------------------------------------------
 
-function createEmitter(position) {
-  const def = {
-    ...JSON.parse(JSON.stringify(DEFAULT_EMITTER)),
-    id: generateId('emitter'),
-  };
+// How far a pasted object is nudged from the original when no position is given
+const PASTE_OFFSET = { x: 20, y: 20 };
 
-  // Use provided position or default
-  if (position) {
+// Object type -> its default definition
+const OBJECT_DEFAULTS = {
+  emitter: DEFAULT_EMITTER,
+  attractor: DEFAULT_ATTRACTOR,
+  forcefield: DEFAULT_FORCEFIELD,
+  collider: DEFAULT_COLLIDER,
+  sink: DEFAULT_SINK,
+};
+
+// Object type -> the name used in history entries and menus
+const OBJECT_LABELS = {
+  emitter: 'emitter',
+  attractor: 'attractor',
+  forcefield: 'force field',
+  collider: 'collider',
+  sink: 'sink',
+};
+
+// Object type -> the editorState.objects collection it lives in
+const OBJECT_COLLECTIONS = {
+  emitter: 'emitters',
+  attractor: 'attractors',
+  forcefield: 'forceFields',
+  collider: 'colliders',
+  sink: 'sinks',
+};
+
+/**
+ * Build the runtime object for a definition and add both to the system
+ *
+ * Creating and pasting both go through here, so a pasted object is
+ * constructed exactly like a freshly created one.
+ */
+function instantiateObject(def) {
+  if (!editorState.particleSystem) {
+    return false;
+  }
+
+  const system = editorState.particleSystem;
+
+  switch (def.type) {
+    case 'emitter': {
+      const emitter = new Emitter(
+        def.position,
+        def.size,
+        def.lifespan,
+        def.options
+      );
+      emitter._id = def.id;
+      system.emitters.push(emitter);
+      break;
+    }
+
+    case 'attractor':
+      system.attractors.push(
+        new Attractor(
+          def.position,
+          def.range,
+          def.force,
+          def.falloff,
+          def.lifespan,
+          def.id
+        )
+      );
+      break;
+
+    case 'forcefield':
+      system.forceFields.push(
+        new ForceField(
+          def.force,
+          def.lifespan,
+          // 'none' means no custom force as far as the constructor is concerned
+          def.customForce === 'none' ? undefined : def.customForce,
+          def.customForceParams,
+          def.id
+        )
+      );
+      break;
+
+    case 'collider':
+      system.colliders.push(
+        new Collider(
+          def.geometry,
+          def.restitution,
+          def.friction,
+          def.randomness,
+          def.id
+        )
+      );
+      break;
+
+    case 'sink':
+      system.sinks.push(
+        new Sink(
+          def.position,
+          def.range,
+          def.strength,
+          def.falloff,
+          def.mode,
+          def.lifespan,
+          def.id
+        )
+      );
+      break;
+
+    default:
+      console.warn('Unknown object type:', def.type);
+      return false;
+  }
+
+  editorState.objects[OBJECT_COLLECTIONS[def.type]].push(def);
+  return true;
+}
+
+/**
+ * Convert client coordinates to canvas coordinates
+ */
+function canvasPositionFromClient(clientX, clientY) {
+  const rect = content.getBoundingClientRect();
+  const margin = editorState.settings.canvasMargin;
+
+  return {
+    x: Math.round(clientX - rect.left) - margin,
+    y: Math.round(clientY - rect.top) - margin,
+  };
+}
+
+/**
+ * Move a definition to a position, accounting for where each type keeps it
+ *
+ * Force fields have no position, so they are left alone.
+ */
+function positionDefinition(def, position) {
+  if (!position) {
+    return def;
+  }
+
+  if (def.type === 'collider') {
+    if (def.geometry) {
+      def.geometry.position = { x: position.x, y: position.y };
+    }
+  } else if (def.position) {
     def.position = { x: position.x, y: position.y };
   }
 
-  const emitter = new Emitter(
-    def.position,
-    def.size,
-    def.lifespan,
-    def.options
+  return def;
+}
+
+/**
+ * Create an object of the given type from its defaults
+ */
+function createObject(type, position) {
+  if (!editorState.particleSystem) {
+    return false;
+  }
+
+  const def = positionDefinition(
+    {
+      ...EditorCommon.Utils.deepClone(OBJECT_DEFAULTS[type]),
+      id: generateId(type),
+    },
+    position
   );
-  emitter._id = def.id;
 
-  editorState.particleSystem.emitters.push(emitter);
-  editorState.objects.emitters.push(def);
+  if (!instantiateObject(def)) {
+    return false;
+  }
 
-  EditorCommon.History.record('Create emitter');
+  EditorCommon.History.record(`Create ${OBJECT_LABELS[type]}`);
   updateTreeView();
   updateCommands();
   updateTitle();
 
-  console.log('Emitter created:', def.id);
+  return true;
+}
+
+function createEmitter(position) {
+  return createObject('emitter', position);
 }
 
 function createAttractor(position) {
-  const def = {
-    ...JSON.parse(JSON.stringify(DEFAULT_ATTRACTOR)),
-    id: generateId('attractor'),
-  };
-
-  // Use provided position or default
-  if (position) {
-    def.position = { x: position.x, y: position.y };
-  }
-
-  const attractor = new Attractor(
-    def.position,
-    def.range,
-    def.force,
-    def.falloff,
-    def.lifespan,
-    def.id
-  );
-
-  editorState.particleSystem.attractors.push(attractor);
-  editorState.objects.attractors.push(def);
-
-  EditorCommon.History.record('Create attractor');
-  updateTreeView();
-  updateCommands();
-  updateTitle();
-
-  console.log('Attractor created:', def.id);
+  return createObject('attractor', position);
 }
 
 function createForceField() {
-  const def = {
-    ...JSON.parse(JSON.stringify(DEFAULT_FORCEFIELD)),
-    id: generateId('forcefield'),
-  };
-
-  // Convert customForce 'none' to undefined for the constructor
-  const customForce = def.customForce === 'none' ? undefined : def.customForce;
-
-  const forceField = new ForceField(
-    def.force,
-    def.lifespan,
-    customForce,
-    def.customForceParams,
-    def.id
-  );
-
-  editorState.particleSystem.forceFields.push(forceField);
-  editorState.objects.forceFields.push(def);
-
-  EditorCommon.History.record('Create force field');
-  updateTreeView();
-  updateCommands();
-  updateTitle();
-
-  console.log('Force field created:', def.id);
+  return createObject('forcefield');
 }
 
 function createCollider(position) {
-  const def = {
-    ...JSON.parse(JSON.stringify(DEFAULT_COLLIDER)),
-    id: generateId('collider'),
-  };
-
-  // Use provided position or default
-  if (position) {
-    def.geometry.position = { x: position.x, y: position.y };
-  }
-
-  const collider = new Collider(
-    def.geometry,
-    def.restitution,
-    def.friction,
-    def.randomness,
-    def.id
-  );
-
-  editorState.particleSystem.colliders.push(collider);
-  editorState.objects.colliders.push(def);
-
-  EditorCommon.History.record('Create collider');
-  updateTreeView();
-  updateCommands();
-  updateTitle();
-
-  console.log('Collider created:', def.id);
+  return createObject('collider', position);
 }
 
 function createSink(position) {
-  const def = {
-    ...JSON.parse(JSON.stringify(DEFAULT_SINK)),
-    id: generateId('sink'),
-  };
+  return createObject('sink', position);
+}
 
-  // Use provided position or default
-  if (position) {
-    def.position = { x: position.x, y: position.y };
+// -----------------------------------------------------------------------------
+// Clipboard
+// -----------------------------------------------------------------------------
+
+// A copied object is just its definition, deep cloned. Pasting gives the copy
+// a fresh id and rebuilds the runtime object from it.
+
+function copyObject(id) {
+  const obj = findObjectById(id);
+  if (!obj) {
+    return false;
   }
 
-  const sink = new Sink(
-    def.position,
-    def.range,
-    def.strength,
-    def.falloff,
-    def.mode,
-    def.lifespan,
-    def.id
-  );
+  editorState.clipboard = EditorCommon.Utils.deepClone(obj);
+  updateCommands();
 
-  editorState.particleSystem.sinks.push(sink);
-  editorState.objects.sinks.push(def);
+  return true;
+}
 
-  EditorCommon.History.record('Create sink');
+function cutObject(id) {
+  if (!copyObject(id)) {
+    return false;
+  }
+
+  deleteObject(id);
+  return true;
+}
+
+/**
+ * Paste the clipboard contents
+ *
+ * With no position the copy is nudged clear of the original so it is visible;
+ * from the context menu it lands where the user right-clicked.
+ */
+function pasteObject(position) {
+  if (!editorState.clipboard || !editorState.particleSystem) {
+    return false;
+  }
+
+  const def = EditorCommon.Utils.deepClone(editorState.clipboard);
+  def.id = generateId(def.type);
+
+  if (position) {
+    positionDefinition(def, position);
+  } else {
+    offsetDefinition(def, PASTE_OFFSET);
+  }
+
+  if (!instantiateObject(def)) {
+    return false;
+  }
+
+  editorState.selectedObjectId = def.id;
+
+  EditorCommon.History.record(`Paste ${OBJECT_LABELS[def.type]}`);
   updateTreeView();
+  updatePropertyEditor();
+  updateStatusBar();
   updateCommands();
   updateTitle();
 
-  console.log('Sink created:', def.id);
+  return true;
+}
+
+/**
+ * Nudge a definition by a delta, wherever it keeps its position
+ */
+function offsetDefinition(def, delta) {
+  const target = def.type === 'collider' ? def.geometry : def;
+
+  if (target?.position) {
+    target.position = {
+      x: target.position.x + delta.x,
+      y: target.position.y + delta.y,
+    };
+  }
+
+  return def;
 }
 
 function deleteObject(id) {
