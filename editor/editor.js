@@ -7,9 +7,16 @@
 const TITLE = 'Particle System';
 const RESIZE_HANDLE_SIZE = 10;
 
+const SETTINGS_STORAGE_KEY = 'basementuniverse:particle-system-editor:settings';
+
+const DEFAULT_SETTINGS = {
+  theme: 'dark',
+  canvasMargin: 20,
+  showGrid: true,
+  gridSize: 10,
+};
+
 const editorState = {
-  dirty: false,
-  projectName: '',
   particleSystem: null,
   selectedObjectId: null,
   contextNodeId: null,
@@ -30,16 +37,8 @@ const editorState = {
   fpsCounter: 0,
   fpsTime: 0,
   fps: 0,
-  history: {
-    snapshots: [],
-    currentIndex: -1,
-  },
-  settings: {
-    theme: 'dark',
-    canvasMargin: 20,
-    showGrid: true,
-    gridSize: 10,
-  },
+  // Replaced during initialisation by the EditorCommon-owned settings object
+  settings: { ...DEFAULT_SETTINGS },
   // Store object definitions for serialization
   objects: {
     emitters: [],
@@ -600,21 +599,15 @@ let app, tree, content, properties, history;
 let canvas, context;
 let particleOptionsEditor, emissionOptionsEditor, customForceParamsEditor;
 let sceneTree, propertiesTitle, propertyEditor, historyView, settingsEditor;
-let newToolbarButton, openToolbarButton, saveToolbarButton;
-let undoToolbarButton, redoToolbarButton;
-let createToolbarMenu;
-let deleteToolbarButton;
-let playToolbarButton,
-  pauseToolbarButton,
-  resetToolbarButton,
-  toggleElementsToolbarButton;
-let settingsToolbarButton, themeSwitch;
-let statusBar,
-  mouseStatusBarItem,
-  selectedStatusBarItem,
-  particlesStatusBarItem,
-  fpsStatusBarItem;
+// Toolbar buttons and context menu items are resolved by EditorCommon.Commands
+// from the selectors in their command declarations, and status bar items by
+// EditorCommon.StatusBar, so neither needs a variable here. The one exception
+// is the toggle-elements button, whose label changes with the state.
+let toggleElementsToolbarButton;
 let settingsDialog, closeSettingsDialogButton;
+
+// Canvas host from EditorCommon, owns sizing and the resize observer
+let canvasHost;
 let particleOptionsDialog,
   particleOptionsJsonEditor,
   particleOptionsOkButton,
@@ -655,12 +648,6 @@ let customForceFunctionDialog,
   customForceFunctionCancelButton,
   customForceFunctionStatusBar,
   customForceFunctionStatusItem;
-let newEmitterContextMenuItem,
-  newAttractorContextMenuItem,
-  newForceFieldContextMenuItem,
-  newColliderContextMenuItem,
-  newSinkContextMenuItem;
-let deleteContextMenuItem, loadImageContextMenuItem;
 let namePrompt, imageIdPrompt;
 let imageFileInput;
 
@@ -673,6 +660,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initialiseEditor() {
+  // Check if the Editor Common library is available
+  if (!window.EditorCommon) {
+    console.error('Editor Common library not found!');
+    return;
+  }
+  const {
+    Theme,
+    Settings,
+    StatusBar,
+    HistoryView,
+    CanvasHost,
+    History,
+    Document,
+    Commands,
+    Shortcuts,
+  } = window.EditorCommon;
   console.log('Initializing Particle System Editor...');
 
   // Check if Particle System library is available
@@ -733,26 +736,9 @@ function initialiseEditor() {
   propertiesTitle = document.getElementById('properties-title');
   propertyEditor = document.getElementById('property-editor');
   historyView = document.getElementById('history-list');
-  newToolbarButton = document.getElementById('new-toolbar-button');
-  openToolbarButton = document.getElementById('open-toolbar-button');
-  saveToolbarButton = document.getElementById('save-toolbar-button');
-  undoToolbarButton = document.getElementById('undo-toolbar-button');
-  redoToolbarButton = document.getElementById('redo-toolbar-button');
-  createToolbarMenu = document.getElementById('create-toolbar-menu');
-  deleteToolbarButton = document.getElementById('delete-toolbar-button');
-  playToolbarButton = document.getElementById('play-toolbar-button');
-  pauseToolbarButton = document.getElementById('pause-toolbar-button');
-  resetToolbarButton = document.getElementById('reset-toolbar-button');
   toggleElementsToolbarButton = document.getElementById(
     'toggle-elements-toolbar-button'
   );
-  settingsToolbarButton = document.getElementById('settings-toolbar-button');
-  themeSwitch = document.querySelector('.theme-switch input');
-  statusBar = document.getElementById('status-bar');
-  mouseStatusBarItem = document.getElementById('mouse-status');
-  selectedStatusBarItem = document.getElementById('selected-status');
-  particlesStatusBarItem = document.getElementById('particles-status');
-  fpsStatusBarItem = document.getElementById('fps-status');
   settingsDialog = document.getElementById('settings-dialog');
   settingsEditor = document.getElementById('settings-editor');
   closeSettingsDialogButton = document.getElementById(
@@ -882,105 +868,105 @@ function initialiseEditor() {
   customForceFunctionStatusItem = document.getElementById(
     'custom-force-function-status-item'
   );
-  newEmitterContextMenuItem = document.getElementById(
-    'new-emitter-context-menu-item'
-  );
-  newAttractorContextMenuItem = document.getElementById(
-    'new-attractor-context-menu-item'
-  );
-  newForceFieldContextMenuItem = document.getElementById(
-    'new-forcefield-context-menu-item'
-  );
-  newColliderContextMenuItem = document.getElementById(
-    'new-collider-context-menu-item'
-  );
-  newSinkContextMenuItem = document.getElementById(
-    'new-sink-context-menu-item'
-  );
-  deleteContextMenuItem = document.getElementById('delete-context-menu-item');
-  loadImageContextMenuItem = document.getElementById(
-    'load-image-context-menu-item'
-  );
   namePrompt = document.getElementById('name-prompt');
   imageIdPrompt = document.getElementById('image-id-prompt');
   imageFileInput = document.getElementById('image-file-input');
 
-  // Configure history view
-  if (historyView) {
-    historyView.columns = [
-      { id: 'label', label: '#', width: '2em' },
-      { id: 'action', label: 'Action' },
-      { id: 'date', label: 'Date', width: '55px' },
-      { id: 'current', label: 'Current', width: '1em' },
-    ];
-  }
+  // Settings, persisted to local storage and merged over the defaults
+  editorState.settings = Settings.initialise({
+    defaults: DEFAULT_SETTINGS,
+    schema: SETTINGS_SCHEMA,
+    editor: settingsEditor,
+    storageKey: SETTINGS_STORAGE_KEY,
+    onChange: () => {
+      canvasHost?.resize();
+    },
+  });
 
-  // Initialise settings editor
-  settingsEditor.value = Object.fromEntries(
-    Object.entries(editorState.settings).filter(([key]) => key !== 'theme')
-  );
-  settingsEditor.schema = SETTINGS_SCHEMA;
+  StatusBar.initialise({
+    items: {
+      mouse: '#mouse-status',
+      selected: '#selected-status',
+      particles: '#particles-status',
+      fps: '#fps-status',
+    },
+  });
 
-  setupCanvas();
-  startRenderLoop();
+  HistoryView.initialise({
+    view: historyView,
+    onSelect: index => History.jumpTo(index),
+  });
+
+  Shortcuts.initialise({
+    dialog: '#shortcuts-dialog',
+    container: '#shortcuts-list',
+    closeButton: '#close-shortcuts-dialog-button',
+  });
+
+  canvasHost = CanvasHost.initialise({
+    canvas,
+    container: content,
+    observe: [tree, properties, history],
+    margin: () => editorState.settings.canvasMargin,
+    size: editorState.canvasSize,
+  });
+
+  // Theme. Every E2 dialog in the document inherits from e2-app, so the six
+  // that used to be listed here no longer need to be
+  Theme.initialise({
+    app,
+    initial: editorState.settings.theme,
+  });
+
+  // The document adapter - the single seam between the shared runtime and
+  // this editor
+  Document.initialise({
+    title: TITLE,
+    defaultName: 'particle-system',
+    extension: '.json',
+    description: 'Particle System',
+    namePrompt,
+
+    createNew: () => emptyProject(),
+    serialize: () => serializeProject(),
+    deserialize: data => applyProjectData(data),
+    validate: data => isProjectData(data),
+
+    onChange: () => {
+      updateStatusBar();
+      updateCommands();
+    },
+
+    messages: {
+      created: 'New particle system created!',
+      loaded: 'Particle system loaded successfully!',
+      saved: 'Particle system saved successfully!',
+      invalid: 'That file is not a valid particle system',
+    },
+    historyLabels: {
+      created: 'New project',
+      loaded: 'Project loaded',
+    },
+  });
+
+  Commands.initialise({
+    onAfterRun: () => updateCommands(),
+  });
+  registerCommands();
+
+  CanvasHost.startRenderLoop(renderFrame, {
+    onFpsUpdate: () => updateStatusBar(),
+  });
+
   setupEventListeners();
   updateTitle();
   updateStatusBar();
-  updateToolbarButtons();
-  themeSwitch.checked = editorState.settings.theme === 'dark';
-  app.setAttribute('theme', editorState.settings.theme);
-  settingsDialog.setAttribute('theme', editorState.settings.theme);
-  particleOptionsDialog.setAttribute('theme', editorState.settings.theme);
-  emissionOptionsDialog.setAttribute('theme', editorState.settings.theme);
-  particleFunctionsDialog.setAttribute('theme', editorState.settings.theme);
-  particleFunctionsStatusBar.setAttribute('theme', editorState.settings.theme);
-  customForceParamsDialog.setAttribute('theme', editorState.settings.theme);
+  updateCommands();
 
   console.log('Particle System Editor initialised successfully');
 }
 
-function setupCanvas() {
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
-
-  // Handle canvas resize observer for more responsive updates
-  if (window.ResizeObserver) {
-    const resizeObserver = new ResizeObserver(resizeCanvas);
-    resizeObserver.observe(tree);
-    resizeObserver.observe(content);
-    resizeObserver.observe(properties);
-    resizeObserver.observe(history);
-  }
-}
-
-function resizeCanvas() {
-  const rect = content.getBoundingClientRect();
-  canvas.width = Math.floor(rect.width) - editorState.settings.canvasMargin * 2;
-  canvas.height =
-    Math.floor(rect.height) - editorState.settings.canvasMargin * 2;
-  canvas.style.width = `${canvas.width}px`;
-  canvas.style.height = `${canvas.height}px`;
-  canvas.style.top = `${editorState.settings.canvasMargin}px`;
-  canvas.style.left = `${editorState.settings.canvasMargin}px`;
-  editorState.canvasSize.x = canvas.width;
-  editorState.canvasSize.y = canvas.height;
-}
-
 function setupEventListeners() {
-  // Theme switch toggle
-  themeSwitch.addEventListener('change', e => {
-    if (e.target.checked) {
-      editorState.settings.theme = 'dark';
-    } else {
-      editorState.settings.theme = 'light';
-    }
-    app.setAttribute('theme', editorState.settings.theme);
-    settingsDialog.setAttribute('theme', editorState.settings.theme);
-    particleOptionsDialog.setAttribute('theme', editorState.settings.theme);
-    emissionOptionsDialog.setAttribute('theme', editorState.settings.theme);
-    customForceParamsDialog.setAttribute('theme', editorState.settings.theme);
-  });
-
   // Mouse movement tracking
   content.addEventListener('mousemove', e => {
     const rect = content.getBoundingClientRect();
@@ -1063,56 +1049,6 @@ function setupEventListeners() {
     }
   });
 
-  // Keyboard events
-  document.addEventListener('keydown', e => {
-    // Don't handle shortcuts if user is typing in an input or textarea
-    const activeElement = document.activeElement;
-    if (
-      activeElement &&
-      (activeElement.tagName === 'TEXTAREA' ||
-        activeElement.tagName === 'INPUT' ||
-        activeElement.isContentEditable)
-    ) {
-      return;
-    }
-
-    // Delete
-    if (e.key === 'Delete' && editorState.selectedObjectId) {
-      e.preventDefault();
-      deleteObject(editorState.selectedObjectId);
-    }
-
-    // Undo
-    if (e.ctrlKey && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-    }
-
-    // Redo
-    if (
-      (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') ||
-      (e.ctrlKey && e.key.toLowerCase() === 'y')
-    ) {
-      e.preventDefault();
-      redo();
-    }
-
-    // Play/Pause with Space
-    if (e.key === ' ') {
-      e.preventDefault();
-      if (editorState.isPlaying) {
-        pauseSimulation();
-      } else {
-        playSimulation();
-      }
-    }
-  });
-
-  // Toolbar button events
-  document.addEventListener('toolbar-button-click', async e => {
-    await handleToolbarAction(e.detail.button.getAttribute('action'));
-  });
-
   // Context menu events
   document.addEventListener('context-menu-show', e => {
     const { componentContext } = e.detail;
@@ -1137,12 +1073,8 @@ function setupEventListeners() {
       editorState.contextNodeId = hoveredObjectId;
     }
 
-    updateContextMenuButtons();
+    updateCommands();
   });
-  document.addEventListener('context-menu-item-click', e => {
-    handleContextMenuAction(e.detail.item.getAttribute('action'));
-  });
-
   // Tree view selection events
   document.addEventListener('tree-selection-change', e => {
     if (e.target === sceneTree) {
@@ -1150,25 +1082,11 @@ function setupEventListeners() {
     }
   });
 
-  // History view selection events
-  document.addEventListener('listview-selection-change', e => {
-    if (e.target === historyView) {
-      handleHistorySelection(e);
-    }
-  });
-
   // Properties editor changes
-  const debouncedHandlePropertyChange = debounce(handlePropertyChange, 300);
+  const debouncedHandlePropertyChange = EditorCommon.Utils.debounce(handlePropertyChange, 300);
   propertyEditor.addEventListener(
     'keyvalue-change',
     debouncedHandlePropertyChange
-  );
-
-  // Settings editor changes
-  const debouncedHandleSettingsChange = debounce(handleSettingsChange, 300);
-  settingsEditor.addEventListener(
-    'keyvalue-change',
-    debouncedHandleSettingsChange
   );
 
   // Close settings dialog
@@ -1189,9 +1107,8 @@ function setupEventListeners() {
         // Recreate the emitter with all custom functions applied
         recreateEmitterWithFunctions(obj);
 
-        takeSnapshot('Edit Particle Options');
+        EditorCommon.History.record('Edit Particle Options');
         updatePropertyEditor(obj);
-        editorState.dirty = true;
         updateTitle();
       }
 
@@ -1266,9 +1183,8 @@ function setupEventListeners() {
         // Recreate the emitter with the new functions
         recreateEmitterWithFunctions(obj);
 
-        takeSnapshot('Edit Particle Functions');
+        EditorCommon.History.record('Edit Particle Functions');
         updatePropertyEditor(obj);
-        editorState.dirty = true;
         updateTitle();
 
         particleFunctionsDialog?.close();
@@ -1337,9 +1253,8 @@ function setupEventListeners() {
         // Recreate the emitter with the new function
         recreateEmitterWithFunctions(obj);
 
-        takeSnapshot('Edit Emission Control Function');
+        EditorCommon.History.record('Edit Emission Control Function');
         updatePropertyEditor(obj);
-        editorState.dirty = true;
         updateTitle();
 
         emissionControlDialog?.close();
@@ -1416,9 +1331,8 @@ function setupEventListeners() {
         // Recreate the emitter with the new functions
         recreateEmitterWithFunctions(obj);
 
-        takeSnapshot('Edit Particle Lifecycle Hooks');
+        EditorCommon.History.record('Edit Particle Lifecycle Hooks');
         updatePropertyEditor(obj);
-        editorState.dirty = true;
         updateTitle();
 
         particleLifecycleDialog?.close();
@@ -1482,9 +1396,8 @@ function setupEventListeners() {
         // Recreate the force field with the new function
         recreateForceFieldWithFunction(obj);
 
-        takeSnapshot('Edit Custom Force Function');
+        EditorCommon.History.record('Edit Custom Force Function');
         updatePropertyEditor(obj);
-        editorState.dirty = true;
         updateTitle();
 
         customForceFunctionDialog?.close();
@@ -1517,9 +1430,8 @@ function setupEventListeners() {
         // Recreate the emitter with all custom functions applied
         recreateEmitterWithFunctions(obj);
 
-        takeSnapshot('Edit Emission Options');
+        EditorCommon.History.record('Edit Emission Options');
         updatePropertyEditor(obj);
-        editorState.dirty = true;
         updateTitle();
       }
 
@@ -1555,9 +1467,8 @@ function setupEventListeners() {
           psObject.customForceParams = customForceParams;
         }
 
-        takeSnapshot('Edit Custom Force Parameters');
+        EditorCommon.History.record('Edit Custom Force Parameters');
         updatePropertyEditor(obj);
-        editorState.dirty = true;
         updateTitle();
       }
 
@@ -1608,97 +1519,260 @@ function setupEventListeners() {
 // Event handlers
 // -----------------------------------------------------------------------------
 
-async function handleToolbarAction(action) {
-  console.log('Toolbar action:', action);
+// -----------------------------------------------------------------------------
+// Document adapter
+// -----------------------------------------------------------------------------
 
-  switch (action) {
-    case 'new':
-      newProject();
-      break;
-    case 'open':
-      openProject();
-      break;
-    case 'save':
-      await saveProject();
-      break;
-    case 'undo':
-      undo();
-      break;
-    case 'redo':
-      redo();
-      break;
-    case 'delete':
-      if (editorState.selectedObjectId) {
-        deleteObject(editorState.selectedObjectId);
-      }
-      break;
-    case 'play':
-      playSimulation();
-      break;
-    case 'pause':
-      pauseSimulation();
-      break;
-    case 'reset':
-      resetSimulation();
-      break;
-    case 'toggle-elements':
-      toggleElementsVisibility();
-      break;
-    case 'settings':
-      settingsDialog?.showModal();
-      break;
-    default:
-      console.warn('Unknown toolbar action:', action);
-  }
+function emptyProject() {
+  return {
+    emitters: [],
+    attractors: [],
+    forceFields: [],
+    colliders: [],
+    sinks: [],
+    images: {},
+  };
 }
 
-function handleContextMenuAction(action) {
-  console.log('Context menu action:', action);
+/**
+ * Apply project data to the editor
+ *
+ * Images travel as data URLs, so the HTMLImageElement for each one has to be
+ * rebuilt here - that is also why this doubles as the history restore path.
+ */
+function applyProjectData(data) {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
 
-  switch (action) {
-    case 'new-emitter':
-    case 'new-emitter-context':
-      createEmitter(
-        action.endsWith('-context') ? editorState.mousePosition : undefined
-      );
-      break;
-    case 'new-attractor':
-    case 'new-attractor-context':
-      createAttractor(
-        action.endsWith('-context') ? editorState.mousePosition : undefined
-      );
-      break;
-    case 'new-forcefield':
-    case 'new-forcefield-context':
-      createForceField();
-      break;
-    case 'new-collider':
-    case 'new-collider-context':
-      createCollider(
-        action.endsWith('-context') ? editorState.mousePosition : undefined
-      );
-      break;
-    case 'new-sink':
-    case 'new-sink-context':
-      createSink(
-        action.endsWith('-context') ? editorState.mousePosition : undefined
-      );
-      break;
-    case 'load-image-context':
-      imageFileInput?.click();
-      break;
-    case 'delete-context':
-      if (editorState.contextNodeId) {
+  // Older files nested everything under `objects`
+  editorState.objects = data.objects || {
+    emitters: data.emitters || [],
+    attractors: data.attractors || [],
+    forceFields: data.forceFields || [],
+    colliders: data.colliders || [],
+    sinks: data.sinks || [],
+  };
+
+  editorState.images = {};
+  for (const [id, imgData] of Object.entries(data.images || {})) {
+    const img = new Image();
+    img.src = imgData.dataUrl;
+
+    editorState.images[id] = {
+      id: imgData.id,
+      filename: imgData.filename,
+      dataUrl: imgData.dataUrl,
+      element: img,
+      loaded: true,
+    };
+  }
+
+  editorState.selectedObjectId = null;
+  recreateParticleSystem();
+  updateTreeView();
+  updatePropertyEditor();
+  resetSimulation();
+
+  return true;
+}
+
+function isProjectData(data) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid project (not an object)');
+  }
+
+  const hasAnyCollection =
+    data.objects ||
+    data.emitters ||
+    data.attractors ||
+    data.forceFields ||
+    data.colliders ||
+    data.sinks;
+
+  if (!hasAnyCollection) {
+    throw new Error('Invalid project (no particle system objects)');
+  }
+
+  return true;
+}
+
+// -----------------------------------------------------------------------------
+// Commands
+// -----------------------------------------------------------------------------
+
+// Object types that can be created, with the factory each one uses. The
+// context menu variants pass the right-click position so the new object lands
+// under the cursor.
+const CREATABLE_OBJECTS = [
+  ['emitter', 'Emitter', position => createEmitter(position)],
+  ['attractor', 'Attractor', position => createAttractor(position)],
+  ['forcefield', 'Force field', () => createForceField()],
+  ['collider', 'Collider', position => createCollider(position)],
+  ['sink', 'Sink', position => createSink(position)],
+];
+
+function registerCommands() {
+  const { Commands, Document, History, Shortcuts } = EditorCommon;
+
+  const hasProject = () => !!editorState.particleSystem;
+  const hasSelection = () => !!editorState.selectedObjectId;
+
+  Commands.registerAll([
+    // --- Document ---
+    {
+      id: 'new',
+      elements: '#new-toolbar-button',
+      group: 'File',
+      run: () => Document.new(),
+    },
+    {
+      id: 'open',
+      elements: '#open-toolbar-button',
+      group: 'File',
+      run: () => Document.open(),
+    },
+    {
+      id: 'save',
+      elements: '#save-toolbar-button',
+      group: 'File',
+      enabled: hasProject,
+      run: () => Document.save(),
+    },
+
+    // --- History ---
+    {
+      id: 'undo',
+      elements: '#undo-toolbar-button',
+      keys: ['Ctrl+Z'],
+      group: 'History',
+      enabled: () => History.canUndo(),
+      run: () => History.undo(),
+    },
+    {
+      id: 'redo',
+      elements: '#redo-toolbar-button',
+      keys: ['Ctrl+Shift+Z', 'Ctrl+Y'],
+      group: 'History',
+      enabled: () => History.canRedo(),
+      run: () => History.redo(),
+    },
+
+    // --- The create menu itself; its items carry the individual commands ---
+    {
+      id: 'create-menu',
+      elements: '#create-toolbar-menu',
+      enabled: hasProject,
+    },
+
+    // --- Delete ---
+    {
+      id: 'delete',
+      label: 'Delete object',
+      elements: '#delete-toolbar-button',
+      keys: ['Delete'],
+      group: 'Edit',
+      enabled: hasSelection,
+      run: () => deleteObject(editorState.selectedObjectId),
+    },
+    {
+      id: 'delete-context',
+      elements: '#delete-context-menu-item',
+      enabled: () => {
+        const obj = findObjectById(editorState.contextNodeId);
+        return !!editorState.contextNodeId && !!obj;
+      },
+      run: () => {
         const obj = findObjectById(editorState.contextNodeId);
         if (obj?.type === 'image') {
           deleteImage(obj.id);
         } else {
           deleteObject(editorState.contextNodeId);
         }
-      }
-      break;
-    default:
-      console.warn('Unknown context menu action:', action);
+      },
+    },
+    {
+      id: 'load-image-context',
+      elements: '#load-image-context-menu-item',
+      enabled: hasProject,
+      run: () => imageFileInput?.click(),
+    },
+
+    // --- Simulation transport ---
+    {
+      id: 'play',
+      elements: '#play-toolbar-button',
+      keys: ['Space'],
+      group: 'Simulation',
+      enabled: () => hasProject() && !editorState.isPlaying,
+      run: () => playSimulation(),
+    },
+    {
+      id: 'pause',
+      elements: '#pause-toolbar-button',
+      keys: ['Space'],
+      group: 'Simulation',
+      enabled: () => hasProject() && editorState.isPlaying,
+      run: () => pauseSimulation(),
+    },
+    {
+      id: 'reset',
+      elements: '#reset-toolbar-button',
+      enabled: hasProject,
+      run: () => resetSimulation(),
+    },
+    {
+      id: 'toggle-elements',
+      label: 'Show/hide elements',
+      elements: '#toggle-elements-toolbar-button',
+      enabled: hasProject,
+      run: () => toggleElementsVisibility(),
+    },
+
+    // --- Dialogs ---
+    {
+      id: 'settings',
+      elements: '#settings-toolbar-button',
+      run: () => settingsDialog?.showModal(),
+    },
+    {
+      id: 'shortcuts',
+      elements: '#shortcuts-button',
+      run: () => Shortcuts.show(),
+    },
+  ]);
+
+  // Object creation, registered once per type in both toolbar and context
+  // menu forms. The context form drops the object at the click position.
+  for (const [type, label, create] of CREATABLE_OBJECTS) {
+    Commands.register({
+      id: `new-${type}`,
+      label: `New ${label.toLowerCase()}`,
+      elements: `#new-${type}-toolbar-menu-item`,
+      enabled: hasProject,
+      run: () => create(undefined),
+    });
+
+    Commands.register({
+      id: `new-${type}-context`,
+      elements: `#new-${type}-context-menu-item`,
+      enabled: hasProject,
+      run: () => create(editorState.mousePosition),
+    });
+  }
+}
+
+/**
+ * Re-evaluate every command's enabled and visible state
+ */
+function updateCommands() {
+  EditorCommon.Commands.refresh();
+
+  // The toggle button's label reflects what it will do next
+  if (toggleElementsToolbarButton) {
+    toggleElementsToolbarButton.label = editorState.showElements
+      ? 'Hide Elements'
+      : 'Show Elements';
   }
 }
 
@@ -1713,14 +1787,14 @@ function handleContentAreaClick(x, y) {
     syncTreeViewSelection(clickedObjectId);
     updatePropertyEditor();
     updateStatusBar();
-    updateToolbarButtons();
+    updateCommands();
   } else {
     console.log('No object at clicked position');
     editorState.selectedObjectId = null;
     sceneTree.clearSelection();
     updatePropertyEditor();
     updateStatusBar();
-    updateToolbarButtons();
+    updateCommands();
     // Update cursor immediately when deselecting
     const hoveredObjectId = findObjectAtPosition(x, y);
     canvas.style.cursor = hoveredObjectId ? 'move' : 'default';
@@ -1763,7 +1837,7 @@ function handleMouseDown(x, y) {
         syncTreeViewSelection(objectId);
         updatePropertyEditor();
         updateStatusBar();
-        updateToolbarButtons();
+        updateCommands();
       }
     }
   }
@@ -2160,8 +2234,7 @@ function handleMouseUp() {
 
       if (moved) {
         // Only take snapshot if object was actually moved
-        takeSnapshot(`Move ${obj.type}`);
-        editorState.dirty = true;
+        EditorCommon.History.record(`Move ${obj.type}`);
         updateTitle();
       }
     }
@@ -2184,8 +2257,7 @@ function handleMouseUp() {
 
       if (changed) {
         // Only take snapshot if object was actually resized
-        takeSnapshot(`Resize ${obj.type}`);
-        editorState.dirty = true;
+        EditorCommon.History.record(`Resize ${obj.type}`);
         updateTitle();
       }
     }
@@ -2234,25 +2306,13 @@ function handleTreeSelection(event) {
     editorState.selectedObjectId = objectId;
     updatePropertyEditor();
     updateStatusBar();
-    updateToolbarButtons();
+    updateCommands();
   } else {
     console.log('No object selected in tree view');
     editorState.selectedObjectId = null;
     updatePropertyEditor();
     updateStatusBar();
-    updateToolbarButtons();
-  }
-}
-
-function handleHistorySelection(event) {
-  console.log('History selection changed:', event.detail);
-
-  const { selectedItems } = event.detail;
-  if (selectedItems && selectedItems.length > 0) {
-    const selectedItem = selectedItems[0];
-    const historyIndex = parseInt(selectedItem.id, 10);
-    console.log('Selected history index:', historyIndex);
-    jumpToHistoryIndex(historyIndex);
+    updateCommands();
   }
 }
 
@@ -2279,114 +2339,6 @@ function handlePropertyChange(event) {
   }
 }
 
-function handleSettingsChange(event) {
-  console.log('Settings changed:', event.detail);
-
-  settingsEditor.validate();
-  if (settingsEditor.isValid()) {
-    editorState.settings = {
-      ...editorState.settings,
-      ...settingsEditor.value,
-    };
-    resizeCanvas();
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Project management
-// -----------------------------------------------------------------------------
-
-function newProject() {
-  // Clear history first
-  editorState.history = {
-    snapshots: [],
-    currentIndex: -1,
-  };
-
-  editorState.projectName = 'Untitled';
-  editorState.particleSystem = new ParticleSystem();
-  editorState.objects = {
-    emitters: [],
-    attractors: [],
-    forceFields: [],
-    colliders: [],
-    sinks: [],
-  };
-  editorState.images = {};
-  editorState.selectedObjectId = null;
-  editorState.dirty = false;
-
-  // Create initial snapshot
-  takeSnapshot('New project');
-
-  updateTreeView();
-  updatePropertyEditor();
-  updateHistoryView();
-  updateToolbarButtons();
-  updateTitle();
-  resetSimulation();
-
-  console.log('New project created');
-
-  // Show success message
-  E2.Toast.success('New particle system created!');
-}
-
-function openProject() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json';
-  input.onchange = async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      loadProjectData(data);
-      editorState.projectName = file.name.replace('.json', '');
-      editorState.dirty = false;
-      updateTitle();
-      console.log('Project loaded:', file.name);
-
-      // Show success message
-      E2.Toast.success('Particle system loaded successfully!');
-    } catch (error) {
-      console.error('Error loading project:', error);
-      alert('Error loading project: ' + error.message);
-    }
-  };
-  input.click();
-}
-
-async function saveProject() {
-  // Prompt for name if the project is still "Untitled"
-  if (!editorState.projectName || editorState.projectName === 'Untitled') {
-    editorState.projectName = await namePrompt.show();
-    // If user cancelled the prompt, abort the save operation
-    if (!editorState.projectName) {
-      return;
-    }
-    updateTitle();
-  }
-
-  const data = serializeProject();
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${editorState.projectName || 'particle-system'}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  editorState.dirty = false;
-  updateTitle();
-  console.log('Project saved');
-
-  // Show success message
-  E2.Toast.success('Particle system saved successfully!');
-}
-
 function serializeProject() {
   // Serialize images with their data URLs
   const serializedImages = {};
@@ -2399,7 +2351,7 @@ function serializeProject() {
   }
 
   return {
-    name: editorState.projectName,
+    name: EditorCommon.Document.getName(),
     emitters: editorState.objects.emitters,
     attractors: editorState.objects.attractors,
     forceFields: editorState.objects.forceFields,
@@ -2407,60 +2359,6 @@ function serializeProject() {
     sinks: editorState.objects.sinks,
     images: serializedImages,
   };
-}
-
-function loadProjectData(data) {
-  editorState.projectName = data.name || 'Untitled';
-
-  // Handle both new format (flat) and old format (nested in objects)
-  if (data.objects) {
-    // Old format with nested objects
-    editorState.objects = data.objects;
-  } else {
-    // New flat format
-    editorState.objects = {
-      emitters: data.emitters || [],
-      attractors: data.attractors || [],
-      forceFields: data.forceFields || [],
-      colliders: data.colliders || [],
-      sinks: data.sinks || [],
-    };
-  }
-
-  // Load images
-  editorState.images = {};
-  if (data.images) {
-    for (const [id, imgData] of Object.entries(data.images)) {
-      const img = new Image();
-      img.src = imgData.dataUrl;
-
-      editorState.images[id] = {
-        id: imgData.id,
-        filename: imgData.filename,
-        dataUrl: imgData.dataUrl,
-        element: img,
-        loaded: true,
-      };
-    }
-  }
-
-  // Recreate particle system from data
-  recreateParticleSystem();
-
-  // Reset history
-  editorState.history = {
-    snapshots: [],
-    currentIndex: -1,
-  };
-
-  // Create initial snapshot
-  takeSnapshot('Project loaded');
-
-  updateTreeView();
-  updatePropertyEditor();
-  updateHistoryView();
-  updateToolbarButtons();
-  resetSimulation();
 }
 
 function recreateParticleSystem() {
@@ -2712,10 +2610,9 @@ function createEmitter(position) {
   editorState.particleSystem.emitters.push(emitter);
   editorState.objects.emitters.push(def);
 
-  takeSnapshot('Create emitter');
+  EditorCommon.History.record('Create emitter');
   updateTreeView();
-  updateToolbarButtons();
-  editorState.dirty = true;
+  updateCommands();
   updateTitle();
 
   console.log('Emitter created:', def.id);
@@ -2744,10 +2641,9 @@ function createAttractor(position) {
   editorState.particleSystem.attractors.push(attractor);
   editorState.objects.attractors.push(def);
 
-  takeSnapshot('Create attractor');
+  EditorCommon.History.record('Create attractor');
   updateTreeView();
-  updateToolbarButtons();
-  editorState.dirty = true;
+  updateCommands();
   updateTitle();
 
   console.log('Attractor created:', def.id);
@@ -2773,10 +2669,9 @@ function createForceField() {
   editorState.particleSystem.forceFields.push(forceField);
   editorState.objects.forceFields.push(def);
 
-  takeSnapshot('Create force field');
+  EditorCommon.History.record('Create force field');
   updateTreeView();
-  updateToolbarButtons();
-  editorState.dirty = true;
+  updateCommands();
   updateTitle();
 
   console.log('Force field created:', def.id);
@@ -2804,10 +2699,9 @@ function createCollider(position) {
   editorState.particleSystem.colliders.push(collider);
   editorState.objects.colliders.push(def);
 
-  takeSnapshot('Create collider');
+  EditorCommon.History.record('Create collider');
   updateTreeView();
-  updateToolbarButtons();
-  editorState.dirty = true;
+  updateCommands();
   updateTitle();
 
   console.log('Collider created:', def.id);
@@ -2837,10 +2731,9 @@ function createSink(position) {
   editorState.particleSystem.sinks.push(sink);
   editorState.objects.sinks.push(def);
 
-  takeSnapshot('Create sink');
+  EditorCommon.History.record('Create sink');
   updateTreeView();
-  updateToolbarButtons();
-  editorState.dirty = true;
+  updateCommands();
   updateTitle();
 
   console.log('Sink created:', def.id);
@@ -2893,11 +2786,10 @@ function deleteObject(id) {
     editorState.selectedObjectId = null;
   }
 
-  takeSnapshot(`Delete ${obj.type}`);
+  EditorCommon.History.record(`Delete ${obj.type}`);
   updateTreeView();
   updatePropertyEditor();
-  updateToolbarButtons();
-  editorState.dirty = true;
+  updateCommands();
   updateTitle();
 
   console.log('Object deleted:', id);
@@ -2952,9 +2844,8 @@ async function loadImageFile(file) {
           loaded: true,
         };
 
-        takeSnapshot(`Load image: ${imageId}`);
+        EditorCommon.History.record(`Load image: ${imageId}`);
         updateTreeView();
-        editorState.dirty = true;
         updateTitle();
 
         console.log('Image loaded:', imageId);
@@ -2998,9 +2889,8 @@ function deleteImage(imageId) {
 
   delete editorState.images[imageId];
 
-  takeSnapshot(`Delete image: ${imageId}`);
+  EditorCommon.History.record(`Delete image: ${imageId}`);
   updateTreeView();
-  editorState.dirty = true;
   updateTitle();
 
   console.log('Image deleted:', imageId);
@@ -3023,8 +2913,7 @@ function updateObjectProperties(id, newValues, path) {
     updateParticleSystemObject(psObject, obj);
   }
 
-  takeSnapshot(`Update ${obj.type}`);
-  editorState.dirty = true;
+  EditorCommon.History.record(`Update ${obj.type}`);
   updateTitle();
 
   console.log('Object properties updated:', id);
@@ -3084,154 +2973,30 @@ function updateParticleSystemObject(psObject, def) {
 // History/Undo/Redo
 // -----------------------------------------------------------------------------
 
-function takeSnapshot(action) {
-  // Serialize images for snapshot (without HTMLImageElement, just metadata)
-  const serializedImages = {};
-  for (const [id, img] of Object.entries(editorState.images)) {
-    serializedImages[id] = {
-      id: img.id,
-      filename: img.filename,
-      dataUrl: img.dataUrl,
-      loaded: img.loaded,
-    };
-  }
-
-  const snapshot = {
-    action,
-    date: new Date(),
-    state: JSON.parse(
-      JSON.stringify({
-        objects: editorState.objects,
-      })
-    ),
-    images: serializedImages,
-  };
-
-  // Remove any snapshots after current index
-  if (
-    editorState.history.currentIndex <
-    editorState.history.snapshots.length - 1
-  ) {
-    editorState.history.snapshots = editorState.history.snapshots.slice(
-      0,
-      editorState.history.currentIndex + 1
-    );
-  }
-
-  editorState.history.snapshots.push(snapshot);
-  editorState.history.currentIndex = editorState.history.snapshots.length - 1;
-
-  updateHistoryView();
-  updateToolbarButtons();
-}
-
-function undo() {
-  if (!canUndo()) return;
-
-  editorState.history.currentIndex--;
-  restoreSnapshot(
-    editorState.history.snapshots[editorState.history.currentIndex]
-  );
-  updateHistoryView();
-  updateToolbarButtons();
-
-  console.log('Undo');
-}
-
-function redo() {
-  if (!canRedo()) return;
-
-  editorState.history.currentIndex++;
-  restoreSnapshot(
-    editorState.history.snapshots[editorState.history.currentIndex]
-  );
-  updateHistoryView();
-  updateToolbarButtons();
-
-  console.log('Redo');
-}
-
-function canUndo() {
-  return editorState.history.currentIndex > 0;
-}
-
-function canRedo() {
-  return (
-    editorState.history.currentIndex < editorState.history.snapshots.length - 1
-  );
-}
-
-function jumpToHistoryIndex(index) {
-  if (index < 0 || index >= editorState.history.snapshots.length) return;
-
-  editorState.history.currentIndex = index;
-  restoreSnapshot(editorState.history.snapshots[index]);
-  updateHistoryView();
-  updateToolbarButtons();
-
-  console.log('Jumped to history index:', index);
-}
-
-function restoreSnapshot(snapshot) {
-  editorState.objects = JSON.parse(JSON.stringify(snapshot.state.objects));
-
-  // Restore images
-  editorState.images = {};
-  if (snapshot.images) {
-    for (const [id, imgData] of Object.entries(snapshot.images)) {
-      const img = new Image();
-      img.src = imgData.dataUrl;
-
-      editorState.images[id] = {
-        id: imgData.id,
-        filename: imgData.filename,
-        dataUrl: imgData.dataUrl,
-        element: img,
-        loaded: imgData.loaded,
-      };
-    }
-  }
-
-  recreateParticleSystem();
-  updateTreeView();
-  updatePropertyEditor();
-  editorState.dirty = true;
-  updateTitle();
-}
-
 // -----------------------------------------------------------------------------
 // Simulation control
 // -----------------------------------------------------------------------------
 
 function playSimulation() {
   editorState.isPlaying = true;
-  editorState.lastFrameTime = performance.now();
-  playToolbarButton.setAttribute('disabled', '');
-  pauseToolbarButton.removeAttribute('disabled');
-  console.log('Simulation playing');
+  updateCommands();
 }
 
 function pauseSimulation() {
   editorState.isPlaying = false;
-  playToolbarButton.removeAttribute('disabled');
-  pauseToolbarButton.setAttribute('disabled', '');
-  console.log('Simulation paused');
+  updateCommands();
 }
 
 function resetSimulation() {
   editorState.isPlaying = false;
   recreateParticleSystem();
-  editorState.lastFrameTime = performance.now();
-  playToolbarButton.removeAttribute('disabled');
-  pauseToolbarButton.setAttribute('disabled', '');
-  console.log('Simulation reset');
+  updateCommands();
 }
 
 function toggleElementsVisibility() {
   editorState.showElements = !editorState.showElements;
-  updateToolbarButtons();
+  updateCommands();
   render();
-  console.log('Elements visibility:', editorState.showElements);
 }
 
 // -----------------------------------------------------------------------------
@@ -3239,50 +3004,37 @@ function toggleElementsVisibility() {
 // -----------------------------------------------------------------------------
 
 function updateTitle() {
-  document.title = `${TITLE} - ${editorState.projectName || 'Untitled'}${
-    editorState.dirty ? ' (modified)' : ''
-  }`;
+  EditorCommon.Document.updateTitle();
 }
 
 function updateStatusBar() {
-  if (!statusBar) return;
+  const { StatusBar } = EditorCommon;
 
-  // Update mouse position
-  if (mouseStatusBarItem) {
-    mouseStatusBarItem.setAttribute(
-      'value',
-      `(${editorState.mousePosition.x}, ${editorState.mousePosition.y})`
-    );
-  }
+  StatusBar.set(
+    'mouse',
+    `(${editorState.mousePosition.x}, ${editorState.mousePosition.y})`
+  );
 
-  // Update selection info
-  if (selectedStatusBarItem) {
-    if (editorState.selectedObjectId) {
-      const obj = findObjectById(editorState.selectedObjectId);
-      selectedStatusBarItem.setAttribute(
-        'value',
-        obj ? `${obj.type} (${obj.id})` : 'Unknown'
-      );
-    } else {
-      selectedStatusBarItem.setAttribute('value', 'None');
-    }
-  }
+  const obj = editorState.selectedObjectId
+    ? findObjectById(editorState.selectedObjectId)
+    : null;
 
-  // Update particles count
-  if (particlesStatusBarItem && editorState.particleSystem) {
-    particlesStatusBarItem.setAttribute(
-      'value',
-      editorState.particleSystem.particles.length.toString()
-    );
-  }
+  StatusBar.set(
+    'selected',
+    editorState.selectedObjectId
+      ? obj
+        ? `${obj.type} (${obj.id})`
+        : 'Unknown'
+      : 'None'
+  );
 
-  // Update FPS
-  if (fpsStatusBarItem) {
-    fpsStatusBarItem.setAttribute(
-      'value',
-      Math.round(editorState.fps).toString()
-    );
-  }
+  StatusBar.set(
+    'particles',
+    editorState.particleSystem
+      ? editorState.particleSystem.particles.length
+      : 0
+  );
+  StatusBar.set('fps', Math.round(editorState.fps));
 }
 
 function flattenObjectForEditor(obj) {
@@ -3494,120 +3246,6 @@ function updatePropertyEditor() {
   }
 }
 
-function updateHistoryView() {
-  if (!historyView) return;
-
-  try {
-    const { history } = editorState;
-
-    const items = history.snapshots.map(({ action, date }, index) => ({
-      id: index.toString(),
-      label: (index + 1).toString(),
-      data: {
-        action,
-        date: formatDateForHistoryView(date),
-        current: index === history.currentIndex ? '✅' : '⬛',
-      },
-    }));
-
-    historyView.items = items;
-
-    if (history.currentIndex >= 0 && history.currentIndex < items.length) {
-      historyView.deselectAll();
-      historyView.selectItem(history.currentIndex.toString());
-    }
-  } catch (error) {
-    console.error('Error updating history view:', error);
-  }
-}
-
-function updateToolbarButtons() {
-  // Save button disabled when no project exists
-  if (editorState.particleSystem) {
-    saveToolbarButton?.removeAttribute('disabled');
-  } else {
-    saveToolbarButton?.setAttribute('disabled', '');
-  }
-
-  // Create dropdown disabled when no project exists
-  if (editorState.particleSystem) {
-    createToolbarMenu?.removeAttribute('disabled');
-  } else {
-    createToolbarMenu?.setAttribute('disabled', '');
-  }
-
-  // Delete button enabled when object selected
-  if (editorState.selectedObjectId) {
-    deleteToolbarButton?.removeAttribute('disabled');
-  } else {
-    deleteToolbarButton?.setAttribute('disabled', '');
-  }
-
-  // Play/Reset buttons disabled when no project exists
-  if (editorState.particleSystem) {
-    playToolbarButton?.removeAttribute('disabled');
-    resetToolbarButton?.removeAttribute('disabled');
-  } else {
-    playToolbarButton?.setAttribute('disabled', '');
-    pauseToolbarButton?.setAttribute('disabled', '');
-    resetToolbarButton?.setAttribute('disabled', '');
-  }
-
-  // Toggle elements button
-  if (editorState.particleSystem) {
-    toggleElementsToolbarButton?.removeAttribute('disabled');
-    if (toggleElementsToolbarButton) {
-      toggleElementsToolbarButton.label = editorState.showElements
-        ? 'Hide Elements'
-        : 'Show Elements';
-    }
-  } else {
-    toggleElementsToolbarButton?.setAttribute('disabled', '');
-  }
-
-  // Undo/redo buttons
-  if (canUndo()) {
-    undoToolbarButton?.removeAttribute('disabled');
-  } else {
-    undoToolbarButton?.setAttribute('disabled', '');
-  }
-  if (canRedo()) {
-    redoToolbarButton?.removeAttribute('disabled');
-  } else {
-    redoToolbarButton?.setAttribute('disabled', '');
-  }
-}
-
-function updateContextMenuButtons() {
-  // Create object context menu items disabled when no project exists
-  if (editorState.particleSystem) {
-    newEmitterContextMenuItem?.removeAttribute('disabled');
-    newAttractorContextMenuItem?.removeAttribute('disabled');
-    newForceFieldContextMenuItem?.removeAttribute('disabled');
-    newColliderContextMenuItem?.removeAttribute('disabled');
-    newSinkContextMenuItem?.removeAttribute('disabled');
-    loadImageContextMenuItem?.removeAttribute('disabled');
-  } else {
-    newEmitterContextMenuItem?.setAttribute('disabled', '');
-    newAttractorContextMenuItem?.setAttribute('disabled', '');
-    newForceFieldContextMenuItem?.setAttribute('disabled', '');
-    newColliderContextMenuItem?.setAttribute('disabled', '');
-    newSinkContextMenuItem?.setAttribute('disabled', '');
-    loadImageContextMenuItem?.setAttribute('disabled', '');
-  }
-
-  // Check if context is on Images section or an image item
-  const obj = findObjectById(editorState.contextNodeId);
-  const isImageItem = obj?.type === 'image';
-
-  // Delete context menu item enabled when an object or image is selected
-  if (editorState.contextNodeId && (obj || isImageItem)) {
-    deleteContextMenuItem?.removeAttribute('disabled');
-  } else {
-    deleteContextMenuItem?.setAttribute('disabled', '');
-  }
-}
-
 function syncTreeViewSelection(id) {
   if (!sceneTree) return;
   sceneTree.clearSelection();
@@ -3618,35 +3256,20 @@ function syncTreeViewSelection(id) {
 // Render loop
 // -----------------------------------------------------------------------------
 
-function startRenderLoop() {
-  requestAnimationFrame(renderLoop);
-}
+/**
+ * One frame: advance the simulation when playing, then draw
+ *
+ * dt clamping and the FPS counter come from CanvasHost.startRenderLoop
+ */
+function renderFrame({ dt, fps }) {
+  editorState.fps = fps;
 
-function renderLoop(timestamp) {
-  // Calculate delta time
-  const dt = Math.min((timestamp - editorState.lastFrameTime) / 1000, 1 / 30);
-  editorState.lastFrameTime = timestamp;
-
-  // Update FPS counter
-  editorState.fpsCounter++;
-  editorState.fpsTime += dt;
-  if (editorState.fpsTime >= 1) {
-    editorState.fps = editorState.fpsCounter / editorState.fpsTime;
-    editorState.fpsCounter = 0;
-    editorState.fpsTime = 0;
-    updateStatusBar();
-  }
-
-  // Update particle system if playing
   if (editorState.isPlaying && editorState.particleSystem) {
     editorState.particleSystem.update(dt);
     updateStatusBar();
   }
 
-  // Render
   render();
-
-  requestAnimationFrame(renderLoop);
 }
 
 function render() {
@@ -4089,30 +3712,7 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function formatDateForHistoryView(date) {
-  const now = new Date();
-  const diff = now - date;
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
 
-  if (seconds < 60) return `${seconds}s ago`;
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return date.toLocaleDateString();
-}
-
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
 
 function openParticleOptionsDialog(emitter) {
   if (!emitter || !particleOptionsDialog || !particleOptionsJsonEditor) return;

@@ -22,6 +22,7 @@
     <script src="debug.js"></script>
     <script src="jsoneditor.min.js"></script>
     <script src="noise.js"></script>
+    <script src="editor-common.js"></script>
     <script src="editor.js"></script>
   </head>
   <body>
@@ -36,32 +37,35 @@
                 label="New"
                 icon="📄"
                 action="new"
+                title="Create a new particle system"
               ></e2-toolbar-button>
               <e2-toolbar-button
                 id="open-toolbar-button"
                 label="Open"
                 icon="📁"
                 action="open"
+                title="Open an existing particle system"
               ></e2-toolbar-button>
               <e2-toolbar-button
                 id="save-toolbar-button"
                 label="Save"
                 icon="💾"
                 action="save"
+                title="Save the current particle system"
               ></e2-toolbar-button>
               <e2-toolbar-separator></e2-toolbar-separator>
               <e2-toolbar-button
                 id="undo-toolbar-button"
-                label="Undo"
                 icon="↩️"
                 action="undo"
+                title="Undo the last action"
                 disabled
               ></e2-toolbar-button>
               <e2-toolbar-button
                 id="redo-toolbar-button"
-                label="Redo"
                 icon="↪️"
                 action="redo"
+                title="Redo the last undone action"
                 disabled
               ></e2-toolbar-button>
               <e2-toolbar-separator></e2-toolbar-separator>
@@ -107,6 +111,7 @@
                 label="Delete"
                 icon="🗑️"
                 action="delete"
+                title="Delete the selected element"
                 disabled
               ></e2-toolbar-button>
               <e2-toolbar-separator></e2-toolbar-separator>
@@ -115,12 +120,14 @@
                 label="Play"
                 icon="▶️"
                 action="play"
+                title="Play the particle system"
               ></e2-toolbar-button>
               <e2-toolbar-button
                 id="pause-toolbar-button"
                 label="Pause"
                 icon="⏸️"
                 action="pause"
+                title="Pause the particle system"
                 disabled
               ></e2-toolbar-button>
               <e2-toolbar-button
@@ -128,11 +135,13 @@
                 label="Reset"
                 icon="🔄"
                 action="reset"
+                title="Reset the particle system"
               ></e2-toolbar-button>
               <e2-toolbar-separator></e2-toolbar-separator>
               <e2-toolbar-button
                 id="toggle-elements-toolbar-button"
                 label="Hide Elements"
+                title="Toggle the visibility of elements"
                 icon="👁️"
                 action="toggle-elements"
               ></e2-toolbar-button>
@@ -140,14 +149,23 @@
               <e2-toolbar-button
                 id="settings-toolbar-button"
                 label="Settings"
+                title="Open settings"
                 icon="⚙️"
                 action="settings"
               ></e2-toolbar-button>
               <span class="spacer"></span>
-              <label class="theme-switch">
-                <input type="checkbox" />
-                <span class="slider" data-off="🌞" data-on="🌙"></span>
-              </label>
+              <div class="toolbar-end">
+                <e2-toolbar-button
+                  id="shortcuts-button"
+                  icon="⌨️"
+                  action="shortcuts"
+                  title="Keyboard shortcuts"
+                ></e2-toolbar-button>
+                <label class="theme-switch">
+                  <input type="checkbox" />
+                  <span class="slider" data-off="🌞" data-on="🌙"></span>
+                </label>
+              </div>
             </e2-toolbar>
           </header>
 
@@ -310,7 +328,19 @@
         <input type="file" id="image-file-input" accept="image/*" style="display: none;" />
 
         <!-- Settings dialog -->
-        <e2-dialog id="settings-dialog" title="Settings" closable theme="dark">
+        <!-- Contents are generated from the command registry -->
+        <e2-dialog
+          id="shortcuts-dialog"
+          title="Keyboard shortcuts"
+          closable
+        >
+          <div id="shortcuts-list"></div>
+          <div slot="footer">
+            <button id="close-shortcuts-dialog-button">Close</button>
+          </div>
+        </e2-dialog>
+
+        <e2-dialog id="settings-dialog" title="Settings" closable>
           <e2-keyvalue-editor id="settings-editor"></e2-keyvalue-editor>
           <div slot="footer">
             <button id="close-settings-dialog-button">Close</button>
@@ -318,7 +348,7 @@
         </e2-dialog>
 
         <!-- Particle Options dialog -->
-        <e2-dialog id="particle-options-dialog" title="Particle Options" closable theme="dark">
+        <e2-dialog id="particle-options-dialog" title="Particle Options" closable>
           <div class="options-dialog-container">
             <div class="options-dialog-docs">
               <h3>Particle Configuration</h3>
@@ -463,7 +493,7 @@
         </e2-dialog>
 
         <!-- Emission Options dialog -->
-        <e2-dialog id="emission-options-dialog" title="Emission Options" closable theme="dark">
+        <e2-dialog id="emission-options-dialog" title="Emission Options" closable>
           <div class="options-dialog-container">
             <div class="options-dialog-docs">
               <h3>Emission Configuration</h3>
@@ -536,7 +566,7 @@
         </e2-dialog>
 
         <!-- Particle Functions dialog -->
-        <e2-dialog id="particle-functions-dialog" title="Particle Generation Functions" closable theme="dark">
+        <e2-dialog id="particle-functions-dialog" title="Particle Generation Functions" closable>
           <div class="options-dialog-container">
             <div class="options-dialog-docs">
               <h3>Particle Generation Functions</h3>
@@ -688,7 +718,7 @@
           </div>
           <div slot="footer">
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
-              <e2-status-bar id="particle-functions-status-bar" theme="dark" style="min-width: 300px">
+              <e2-status-bar id="particle-functions-status-bar" style="min-width: 300px">
                 <e2-status-section slot="left" position="left">
                   <e2-status-item id="particle-functions-status-item" type="message" value=""></e2-status-item>
                 </e2-status-section>
@@ -700,7 +730,7 @@
         </e2-dialog>
 
         <!-- Custom Force Parameters dialog -->
-        <e2-dialog id="custom-force-params-dialog" title="Custom Force Parameters" closable theme="dark">
+        <e2-dialog id="custom-force-params-dialog" title="Custom Force Parameters" closable>
           <div class="options-dialog-container">
             <div class="options-dialog-docs">
               <h3>Custom Force Parameters</h3>
@@ -812,7 +842,7 @@
         </e2-dialog>
 
         <!-- Emission Control dialog -->
-        <e2-dialog id="emission-control-dialog" title="Emission Control Function" closable theme="dark">
+        <e2-dialog id="emission-control-dialog" title="Emission Control Function" closable>
           <div class="options-dialog-container">
             <div class="options-dialog-docs">
               <h3>Custom Emission Control</h3>
@@ -865,7 +895,7 @@
           </div>
           <div slot="footer">
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
-              <e2-status-bar id="emission-control-status-bar" theme="dark" style="min-width: 300px">
+              <e2-status-bar id="emission-control-status-bar" style="min-width: 300px">
                 <e2-status-section slot="left" position="left">
                   <e2-status-item id="emission-control-status-item" type="message" value=""></e2-status-item>
                 </e2-status-section>
@@ -877,7 +907,7 @@
         </e2-dialog>
 
         <!-- Particle Lifecycle dialog -->
-        <e2-dialog id="particle-lifecycle-dialog" title="Particle Lifecycle Hooks" closable theme="dark">
+        <e2-dialog id="particle-lifecycle-dialog" title="Particle Lifecycle Hooks" closable>
           <div class="options-dialog-container">
             <div class="options-dialog-docs">
               <h3>Particle Lifecycle Hooks</h3>
@@ -966,7 +996,7 @@
           </div>
           <div slot="footer">
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
-              <e2-status-bar id="particle-lifecycle-status-bar" theme="dark" style="min-width: 300px">
+              <e2-status-bar id="particle-lifecycle-status-bar" style="min-width: 300px">
                 <e2-status-section slot="left" position="left">
                   <e2-status-item id="particle-lifecycle-status-item" type="message" value=""></e2-status-item>
                 </e2-status-section>
@@ -978,7 +1008,7 @@
         </e2-dialog>
 
         <!-- Custom Force Function dialog -->
-        <e2-dialog id="custom-force-function-dialog" title="Custom Force Function" closable theme="dark">
+        <e2-dialog id="custom-force-function-dialog" title="Custom Force Function" closable>
           <div class="options-dialog-container">
             <div class="options-dialog-docs">
               <h3>Custom Force Function</h3>
@@ -1051,7 +1081,7 @@
           </div>
           <div slot="footer">
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
-              <e2-status-bar id="custom-force-function-status-bar" theme="dark" style="min-width: 300px">
+              <e2-status-bar id="custom-force-function-status-bar" style="min-width: 300px">
                 <e2-status-section slot="left" position="left">
                   <e2-status-item id="custom-force-function-status-item" type="message" value=""></e2-status-item>
                 </e2-status-section>

@@ -98,11 +98,19 @@ footer {
 }
 
 /* Theme switch */
+/* Right-hand end of the toolbar */
+.toolbar-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .theme-switch {
   margin: 5px;
-  position: absolute;
-  right: 0;
+  position: relative;
   display: inline-block;
+  flex: none;
   width: 50px;
   height: 26px;
 }
@@ -305,4 +313,104 @@ e2-app[theme="dark"] *::-webkit-scrollbar-thumb:active {
 
 #particle-options-cancel-button:hover {
   background: var(--bg-secondary, #4e4e52) !important;
+}
+
+/* Toolbar and context menu items can be hidden as well as disabled */
+e2-toolbar-separator,
+e2-toolbar-button,
+e2-toolbar-menu {
+  display: flex;
+}
+
+e2-toolbar-separator.hidden,
+e2-toolbar-button.hidden,
+e2-toolbar-menu.hidden {
+  display: none;
+}
+
+e2-context-menu-item,
+e2-context-menu-menu,
+e2-context-menu-separator {
+  display: flex;
+}
+
+e2-context-menu-item.hidden,
+e2-context-menu-menu.hidden,
+e2-context-menu-separator.hidden {
+  display: none;
+}
+
+/* Keyboard shortcuts dialog */
+#shortcuts-list {
+  min-width: 380px;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-right: 0.5rem;
+}
+
+.shortcut-group h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0.3rem 0;
+}
+
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.shortcut-combo {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+.shortcut-or {
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+
+.shortcut-empty {
+  margin: 0;
+  opacity: 0.6;
+}
+
+#shortcuts-list kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0.15em 0.45em;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+e2-app[theme="light"] #shortcuts-list kbd {
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-bottom-width: 2px;
+  color: #222;
+}
+
+e2-app[theme="dark"] #shortcuts-list kbd {
+  background: #3a3a3a;
+  border: 1px solid #555;
+  border-bottom-width: 2px;
+  color: #eee;
 }
